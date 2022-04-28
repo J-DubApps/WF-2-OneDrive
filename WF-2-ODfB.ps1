@@ -116,8 +116,8 @@
 #
 #	02/12/2022	 	 		Initial version by Julian West
 #	03/06/2022	 (JW)		Configure variables for location differences
-#   04/10/2022   (JW)       Remove original employer specific code
-#   04/20/2022   (JW)       Publish inital commit to Github.
+#   	04/10/2022   (JW)       Remove original employer specific code
+#   	04/20/2022   (JW)       Publish inital commit to Github.
 #
 ###############################################################################################
 
