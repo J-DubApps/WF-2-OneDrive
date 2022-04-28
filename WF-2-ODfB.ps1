@@ -114,10 +114,10 @@
 #	Date		Modified by		Description of modification
 #----------------------------------------------------------------------------------------------
 #
-#	02/12/2022	 	 		Initial version by Julian West
-#	03/06/2022	 (JW)		Configure variables for location differences
-#   	04/10/2022   (JW)       Remove original employer specific code
-#   	04/20/2022   (JW)       Publish inital commit to Github.
+#	02/12/2022	 	Initial version by Julian West
+#	03/06/2022	(JW)	Configure variables for location differences
+#   	04/10/2022   	(JW)    Remove original employer specific code
+#   	04/20/2022   	(JW)    Publish inital commit to Github.
 #
 ###############################################################################################
 
@@ -179,7 +179,7 @@ $logFileX86 = Join-Path $Env:TEMP -ChildPath "OnedriveAutoConfigx86.log"
 
 
 ##########################################################################
-##				 Functions Section - DO NOT MODIFY!!
+##	Functions Section - DO NOT MODIFY!!
 ##########################################################################
 
 Function Log-InformationalEvent($Message){
