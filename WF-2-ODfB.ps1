@@ -75,31 +75,37 @@
 #           More info here: https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-azure-ad-join-hybrid
 #                           https://docs.microsoft.com/en-us/azure/active-directory/devices/hybrid-azuread-join-plan  
 #
-# 	LICENSE: GNU General Public License, version 3 (GPLv3)
+# 	LICENSE: Creative Commons Public Attribution license 4.0, non-Commercial use.
 #
-#  You are free to make any changes to your own copy of this script, provided you agree
+#  You are free to make any changes to your own copy of this script, provided you give Attribution and agree
 #  you cannot hold the original author responsible for any issues resulting from this script.
-#  I welcome forks or pulls and will be happy to help improve the script for anyone if I have the time.
 #
-#  Please do feel free share any deployment success, or script ideas, with me: jdub.writes.some.code(at)gmail(dot)com
+#   Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made
+#   You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use. 
+#
+#  I welcome forks or pulls and will be happy to help improve the script for anyone if I have the time, but please bear
+#  in mind that 70% of this script utilizes functions in PS Script O4BClientAutoConfig.ps1 written by Jos Lieben
+#  @ https://www.lieben.nu/liebensraum/o4bclientautoconfig/ and any changes to this script will also require a communication to 
+#  that original author.
+#
+#  Please do feel to contact me at: jdub.writes.some.code(at)gmail(dot)com
 #
 #  TL;DR*
 #
-# 1. Anyone can copy, modify and distribute this software.
-# 2. You have to include the license and any copyright notice with each and every distribution.
-# 3. You can use this software privately.
-# 4. You can use this software for commercial purposes.
-# 5. If you dare build a business engagement from this code, you risk open-sourcing the whole code base.
+# 1. Anyone can copy, modify and use this software non-commercially.
+# 2. You have to include the license stated here, and give attribution during changes.
+# 3. You can use this software privately only, for non-commercial use.  Commercial use will require purchasing a license from Jos Lieben.
+# 4. You are NOT authorized to use this software for commercial purposes without first purchasing an unlimited license from Jos Lieben.
+# 5. If you dare build a business engagement from this code, you risk legal action.
 # 6. If you modify it, you have to indicate changes made to the code.
 # 7. Any modifications of this code base MUST be distributed with the same license, GPLv3.
 # 8. This software is provided without warranty.
-# 9. The software author or license can not be held liable for any damages inflicted by the software.
-# 10. Feel free to reach out to author to share usage, ideas etc jdub.writes.some.code(at)gmail(dot)com
+# 9. The software authors or license can not be held liable for any damages resulting from use of the software.
 #
 ###############################################################################################
 #
 # Mentions / articles used:
-# References Functions in PS Module O4BClientAutoConfig written by Jos Lieben @ https://www.lieben.nu/liebensraum/o4bclientautoconfig/
+# References Functions in PS Script O4BClientAutoConfig.ps1 written by Jos Lieben @ https://www.lieben.nu/liebensraum/o4bclientautoconfig/
 # @Per Larsen for writing on silent auto config: https://osddeployment.dk/2017/12/18/how-to-silently-configure-onedrive-for-business-with-intune/
 # @Aaron Parker for writing on folder redirection using Powershell: https://stealthpuppy.com/onedrive-intune-folder-redirection
 # Jason Wasser @wasserja for his great Robocopy Wrapper Function
@@ -115,22 +121,16 @@
 #	Date		Modified by		Description of modification
 #----------------------------------------------------------------------------------------------
 #
-#	02/12/2022	 	 		Initial version by Julian West
-#	03/06/2022	 (JW)		Configure variables for location differences
-#	03/15/2022	 (JW)		Remove Move/Copy functions and leverage Robocopy (pre-installed on Win10)
-#	03/17/2022	 (JW)		Final testing round with GPO/GPP Registry entries for pre-migration settings
-#  	03/29/2022   (JW)       Updated to clean up duplicate Desktop Shortcuts (optional, un-comment to run)
-#   04/04/2022   (JW)		Updated to log activities to a log file
-#	04/04/2022   (JW)		Update for Registry path checks to current redirected Shell folders
-#	04/05/2022   (JW)		Trigger OneDrive Setup to run if on VPN and Migration Flagfile < 24 hrs old 
-#   04/10/2022	 (JW)		Remove original employer specific code
+#	02/12/2022	 	 	Initial version by Julian West
+#	03/06/2022	(JW)		Configure variables for location differences
+#	04/10/2022	(JW)		Remove original employer specific code
 #
 ###############################################################################################
 
 # ************************************************
 
 ### REQUIRED CONFIGURATION ###
-## *REQUIRED* Variables, required for successful script run.  Set to your own env values - 
+## *REQUIRED* Variables, needed for successful script run.  Set to your own env values - 
 #
 
 $OneDriveFolderName = "OneDrive - McKool Smith" # 
