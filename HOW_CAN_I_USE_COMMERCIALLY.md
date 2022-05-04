@@ -39,7 +39,7 @@ Very Large| 2500+   | € 2,500.00| € 6,250.00  <br>
 
 |               Tier               |  Users  |         Yearly         | Unlimited |
 |----------------------------------|---------|------------------------|-----------|
-| Value 1                          | Value 2 | 123                    |      10.0 |
+| Startup                          | 0-10    | € 100.00               |€ 250.00   |
 | Separate                         | cols    | with a tab or 4 spaces |  -2,027.1 |
 | This is a row with only one cell |         |                        |           |
 | test                             |         |                        |           |
