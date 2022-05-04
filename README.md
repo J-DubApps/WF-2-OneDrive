@@ -10,3 +10,6 @@ Description
        and finally moves data from Work Folders to OneDrive folder using Robocopy /Move 
        in a Wrapper Function. 
        
+LICENSE: Licensed under Creative Commons Public Attribution license 4.0, non-Commercial use.  
+
+See LICENSE.md and HOW_CAN_I_USE_COMMERCIALLY.md for more info.
