@@ -3,7 +3,7 @@ WS-2-OneDrive script is free to use *only* for personal, non-commercial use.
 For Commercial Use (as laid-out below) please contact [Jos Lieben](https://twitter.com/joslieben) to arrange a one-time payment for a perpetual license.
 
 Since this solution utilizes a good deal of code from another solution, written by [Jos Lieben](https://twitter.com/joslieben),
-I am bound to observe that author's Licensing and limit open use of this solution to non-commercial use, as laid-out by Jos on his web site here:
+I am bound to observe that author's Licensing and limits on commercial use, as laid-out by Jos on his web site here:
  
  https://www.lieben.nu/liebensraum/commercial-use/
 
