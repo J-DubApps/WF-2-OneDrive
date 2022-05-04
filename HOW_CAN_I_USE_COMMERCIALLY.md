@@ -23,18 +23,7 @@ This is where these scripts create monetary value, and therefore where I feel it
 Therefore, if you wish to use this script in a commercial context as defined above, you must arrange a one-time payment for unlimited 
 Commercial Use within one of the tiers laid-out below.   
 
-You can alternatively pay Jos yearly for a non-perpetual license. When upgrading tiers, the previous payment may be substracted from the price.<br><br>
-
-  Tier    | Users   |   Yearly  |   Unlimited<br>
-----------------------------------------------<br>
-Startup   | 0-10    | € 100.00  | € 250.00    <br>
-Tiny      | 10-50   | € 200.00  | € 500.00    <br>
-Small     | 50-150  | € 400.00  | € 1,000.00  <br>
-Medium    | 150-500 | € 800.00  | € 2,000.00  <br>
-Large     | 500-2500| € 1,600.00| € 4,000.00  <br>
-Very Large| 2500+   | € 2,500.00| € 6,250.00  <br>
-
-
+You can alternatively pay Jos yearly for a non-perpetual license.
 
 
 |               Tier               |  Users  |         Yearly         | Unlimited |
@@ -45,5 +34,8 @@ Very Large| 2500+   | € 2,500.00| € 6,250.00  <br>
 | Medium                           | 150-500 | € 800.00               |€ 2,000.00 |
 | Large                            | 500-2500| € 1,600.00             |€ 4,000.00 |
 | Very Large                       | 2500+   | € 2,500.00             |€ 6,250.00 |
+
+
+ When upgrading tiers, the previous payment may be substracted from the price.
 
 
