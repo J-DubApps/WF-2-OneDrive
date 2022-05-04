@@ -10,7 +10,7 @@ I am bound to observe that author's Licensing and limits on commercial use, as l
 "Commercial Use" would mean using this scripted solution as part of 
 a service or product that is being paid for by someone.
 
-_For_ _example:_
+_**For**_ _**example:**_
 
 a managed service provider that uses my scripts in their customer environments
 a global IT organization that handles IT projects, for which they are compensated
