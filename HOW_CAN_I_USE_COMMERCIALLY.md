@@ -35,8 +35,14 @@ Large     | 500-2500| € 1,600.00| € 4,000.00  <br>
 Very Large| 2500+   | € 2,500.00| € 6,250.00  <br>
 
 
-Tier	Users	Yearly	Unlimited
-Value 1	Value 2	123	10.0
-Separate	cols    with a tab or 4 spaces	-2,027.1
-This is a row with only one cell
-test
+
++----------------------------------+---------+------------------------+-----------+
+|               Tier               |  Users  |         Yearly         | Unlimited |
++----------------------------------+---------+------------------------+-----------+
+| Value 1                          | Value 2 | 123                    |      10.0 |
+| Separate                         | cols    | with a tab or 4 spaces |  -2,027.1 |
+| This is a row with only one cell |         |                        |           |
+| test                             |         |                        |           |
++----------------------------------+---------+------------------------+-----------+
+
+
