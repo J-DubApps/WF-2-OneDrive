@@ -12,7 +12,7 @@
     OneDrive Setup (see note below), moves data from Work Folders to OneDrive folder via
     Robocopy /Move, and sets redirection for Known Folders.  Leverages code from 
     Jos Lieben's solution at https://www.lieben.nu/liebensraum/o4bclientautoconfig/
-    Requirements: Windows 10, Powershell script should run as an Admin if Script wasn't installed yet
+    Requirements: Windows 10, Powershell 5x or above
 .LINK
     https://github.com/J-DubApps
     #>
@@ -25,11 +25,11 @@
 #	Description 
 #		This script will migrate a Windows 10 Endpoint's User data sync settings
 #       from Work Folders over to OneDrive for Business.  It is targeted to silently run 
-#       OneDrive Setup (see note below), moves data from Work Folders to OneDrive folder via
-#       Robocopy /Move, and sets redirection for Known Folders.  
+#       OneDrive Setup, automatically sign-into OneDrive (see note below), and set redirection for 
+#       Known Folders.  It will also MOVE data from a user's configured Work Folders Root path
+#       to OneDrive folder via a Robocopy Wrapper function.
 #       
-#       This script can be run with or without Admin rights, but needs Admin rights
-#       for certain features to work (enabling FilesOnDemand etc). For optimal UX the script is 
+#       This script can be run without Admin rights. For optimal UX the script is 
 #       designed to run HIDDEN (no PS window seen by the user), and can re-run multiple times 
 #       for hybrid Remote Workers' PC endpoints (where interruptions may occur).
 #
@@ -70,7 +70,8 @@
 #       Scheduled Task method of launch).  
 #
 #       NOTE: To leverage automatic sign-in for OneDrive, your Windows Endpoints must be configured 
-#           for Hybrid  Azure AD join. 
+#           for Hybrid Azure AD join.  Otherwise your users will have to Authenticate to OneDrive the first time.
+#
 #           More info here: https://docs.microsoft.com/en-us/azure/active-directory/devices/concept-azure-ad-join-hybrid
 #                           https://docs.microsoft.com/en-us/azure/active-directory/devices/hybrid-azuread-join-plan  
 #
@@ -114,10 +115,15 @@
 #	Date		Modified by		Description of modification
 #----------------------------------------------------------------------------------------------
 #
-#	02/12/2022	 	Initial version by Julian West
-#	03/06/2022	(JW)	Configure variables for location differences
-#   	04/10/2022   	(JW)    Remove original employer specific code
-#   	04/20/2022   	(JW)    Publish inital commit to Github.
+#	02/12/2022	 	 		Initial version by Julian West
+#	03/06/2022	 (JW)		Configure variables for location differences
+#	03/15/2022	 (JW)		Remove Move/Copy functions and leverage Robocopy (pre-installed on Win10)
+#	03/17/2022	 (JW)		Final testing round with GPO/GPP Registry entries for pre-migration settings
+#  	03/29/2022   (JW)       Updated to clean up duplicate Desktop Shortcuts (optional, un-comment to run)
+#   04/04/2022   (JW)		Updated to log activities to a log file
+#	04/04/2022   (JW)		Update for Registry path checks to current redirected Shell folders
+#	04/05/2022   (JW)		Trigger OneDrive Setup to run if on VPN and Migration Flagfile < 24 hrs old 
+#   04/10/2022	 (JW)		Remove original employer specific code
 #
 ###############################################################################################
 
@@ -127,28 +133,28 @@
 ## *REQUIRED* Variables, required for successful script run.  Set to your own env values - 
 #
 
-$TenantID = "<Your Tenant ID here>"
-# **required - Set this variable with your Tenant ID 
-
-$WorkFoldersName = "Work Folders"  # <--- Your Work Folders Name Here
-# **required - the folder currently used for Work Folder redirection/sync in your enviornment.
-# Script execution on Windows endpoints will look for this folder name.
-#
-
-$OneDriveFolderName = "<Your Tenant OneDrive Folder Name Here>"  
-# **required - this is OneDrive folder name that will exist under %USERPROFILE%
+$OneDriveFolderName = "OneDrive - McKool Smith" # 
+# **required - this is the OneDrive folder name that will exist under %USERPROFILE%
 # This folder is usually named from your O365 Tenant Org name by default, or customized in GPO/Registry.
 # This default folder name can be confirmed via manual install of OneDrive on a standalone Windows endpoint.
 
-$LogFileName = "ODfB_Mig-$env:username.log"
+$LogFileName = "ODfB_MigChecks-$env:username.log"
 # This is the Log File name where activites will be logged, by default it includes the current Username 
 # in the file name.  It is saved during Runtime to current %userprofile%\$LogFileName
 #
 
 $MigrationFlagFileName = "FirstOneDriveComplete.flg"
 # This is the Migration Flag File which is created during WF to OneDrive data migration steps
-# It is saved during Runtime to current %userprofile%\$MigrationFlagFileName
+# It is saved during Runtime to: %userprofile%\$OneDriveFolderName\$MigrationFlagFileName
 #
+
+$redirectFoldersToOnedriveForBusiness = $True #if enabled, the next array needs to be configured as well
+$listOfFoldersToRedirectToOnedriveForBusiness = @(#One line for each folder you want to redirect. For knownFolderInternalName choose from Get-KnownFolderPath function, for knownFolderInternalIdentifier choose from Set-KnownFolderPath function
+    @{"knownFolderInternalName" = "Desktop";"knownFolderInternalIdentifier"="Desktop";"desiredSubFolderNameInOnedrive"="Desktop"},
+    @{"knownFolderInternalName" = "MyDocuments";"knownFolderInternalIdentifier"="Documents";"desiredSubFolderNameInOnedrive"="Documents"},
+    @{"knownFolderInternalName" = "Favorites";"knownFolderInternalIdentifier"="Favorites";"desiredSubFolderNameInOnedrive"="Favorites"},
+    @{"knownFolderInternalName" = "MyPictures";"knownFolderInternalIdentifier"="Pictures";"desiredSubFolderNameInOnedrive"="Pictures"} #note that the last entry does NOT end with a comma
+)
 
 #
 ##
@@ -160,14 +166,17 @@ $MigrationFlagFileName = "FirstOneDriveComplete.flg"
 ## *OPTIONAL* Variables, not required for script execution - 
 #
 
-$FilesOnDemand = "0" #OneDrive Files On Demand is Default to DISABLED, replace with "1" to enable
+$enableFilesOnDemand = $False #Needs Windows 10 1709 or higher
 $xmlDownloadURL = "https://g.live.com/1rewlive5skydrive/ODSUInsider"
 $minimumOfflineVersionRequired = 19
 $temporaryInstallerPath = Join-Path $Env:TEMP -ChildPath "OnedriveInstaller.EXE"
 $logFileX64 = Join-Path $Env:TEMP -ChildPath "OnedriveAutoConfigx64.log"
 $logFileX86 = Join-Path $Env:TEMP -ChildPath "OnedriveAutoConfigx86.log"
+#$WorkFoldersName = "Work Folders" # <--- You can set this to the exact name of your Work Folders, if the Script does not correctly Auto-populate your Work Folders Name during test runs
 
-#HKLM\SOFTWARE\Policies\Microsoft\OneDrive]"FilesOnDemandEnabled"="dword:00000001"
+# Script execution will attempt to populate $WorkFoldersName from HKCU\Software\Policies\Microsoft\Windows\WorkFolders, for the path and
+# Entry "LocalFolderPath" REG_SZ --  and it should have an entry similar to: %USERPROFILE%\WorkFolderPath
+# This value string is loaded, santized to replace %USERPROFILE%\ string, and then assigned to $WorkFoldersName variable where it will eventually be "$env:userprofile\WorkFolderPath"
 
 #
 ##
@@ -175,11 +184,8 @@ $logFileX86 = Join-Path $Env:TEMP -ChildPath "OnedriveAutoConfigx86.log"
 
 
 
-###############################################################################################
-
-
 ##########################################################################
-##	Functions Section - DO NOT MODIFY!!
+##		Functions Section - DO NOT MODIFY!!
 ##########################################################################
 
 Function Log-InformationalEvent($Message){
@@ -206,195 +212,45 @@ Function WriteLog($LogString){
 #Param ([string]$LogString)
 $Stamp = (Get-Date).toString("yyyy/MM/dd HH:mm:ss")
 $LogMessage = "$Stamp $LogString"
-Add-content $LogFile -value $LogMessage
-}
-
-##########################################################################
-##	Returns a string value - for parsing online content 
-##########################################################################
-Function returnEnclosedValue{
-    Param(
-        [Parameter(Mandatory = `$True)]`$sourceString,
-        [Parameter(Mandatory = `$True)]`$searchString
-    )
-    try{
-        `$endString = `"```"`"
-        `$start = `$searchString
-        `$startLoc = `$sourceString.IndexOf(`$start)+`$start.Length
-        if(`$startLoc -eq `$start.Length-1){
-            Throw `"Not Found`"
-        }
-        `$searchLength = `$sourceString.IndexOf(`$endString,`$startLoc)-`$startLoc
-        if(`$searchLength -eq `$startLoc-1){
-            Throw `"Not Found`"
-        }
-        return(`$sourceString.Substring(`$startLoc,`$searchLength))
-    }catch{Throw}
-}
-
-##########################################################################
-##	Runs a new process hidden or visible
-##########################################################################
-
-function runProcess (`$cmd, `$params, `$windowStyle=1) {
-    `$p = new-object System.Diagnostics.Process
-    `$p.StartInfo = new-object System.Diagnostics.ProcessStartInfo
-    `$exitcode = `$false
-    `$p.StartInfo.FileName = `$cmd
-    `$p.StartInfo.Arguments = `$params
-    `$p.StartInfo.UseShellExecute = `$False
-    `$p.StartInfo.RedirectStandardError = `$True
-    `$p.StartInfo.RedirectStandardOutput = `$True
-    `$p.StartInfo.WindowStyle = `$windowStyle; #1 = hidden, 2 =maximized, 3=minimized, 4=normal
-    `$null = `$p.Start()
-    `$output = `$p.StandardOutput.ReadToEnd()
-    `$exitcode = `$p.ExitCode
-    `$p.Dispose()
-    `$exitcode
-    `$output
-}
-
-##########################################################################
-## Retrieve Known Folder Path
-##########################################################################
-Function Get-KnownFolderPath {
-    Param (
-            [Parameter(Mandatory = `$true)]
-            [ValidateSet('AdminTools','ApplicationData','CDBurning','CommonAdminTools','CommonApplicationData','CommonDesktopDirectory','CommonDocuments','CommonMusic',`
-            'CommonOemLinks','CommonPictures','CommonProgramFiles','CommonProgramFilesX86','CommonPrograms','CommonStartMenu','CommonStartup','CommonTemplates',`
-            'CommonVideos','Cookies','Downloads','Desktop','DesktopDirectory','Favorites','Fonts','History','InternetCache','LocalApplicationData','LocalizedResources','MyComputer',`
-            'MyDocuments','MyMusic','MyPictures','MyVideos','NetworkShortcuts','Personal','PrinterShortcuts','ProgramFiles','ProgramFilesX86','Programs','Recent',`
-            'Resources','SendTo','StartMenu','Startup','System','SystemX86','Templates','UserProfile','Windows')]
-            [string]`$KnownFolder
-    )
-    if(`$KnownFolder -eq `"Downloads`"){
-        Return `$Null
-    }else{
-        Return [Environment]::GetFolderPath(`$KnownFolder)
-    }
-}
-
-##########################################################################
-## Set Known Folder Path
-##########################################################################
-Function Set-KnownFolderPath {
-    Param (
-            [Parameter(Mandatory = `$true)][ValidateSet('AddNewPrograms', 'AdminTools', 'AppUpdates', 'CDBurning', 'ChangeRemovePrograms', 'CommonAdminTools', 'CommonOEMLinks', 'CommonPrograms', `
-            'CommonStartMenu', 'CommonStartup', 'CommonTemplates', 'ComputerFolder', 'ConflictFolder', 'ConnectionsFolder', 'Contacts', 'ControlPanelFolder', 'Cookies', `
-            'Desktop', 'Documents', 'Downloads', 'Favorites', 'Fonts', 'Games', 'GameTasks', 'History', 'InternetCache', 'InternetFolder', 'Links', 'LocalAppData', `
-            'LocalAppDataLow', 'LocalizedResourcesDir', 'Music', 'NetHood', 'NetworkFolder', 'OriginalImages', 'PhotoAlbums', 'Pictures', 'Playlists', 'PrintersFolder', `
-            'PrintHood', 'Profile', 'ProgramData', 'ProgramFiles', 'ProgramFilesX64', 'ProgramFilesX86', 'ProgramFilesCommon', 'ProgramFilesCommonX64', 'ProgramFilesCommonX86', `
-            'Programs', 'Public', 'PublicDesktop', 'PublicDocuments', 'PublicDownloads', 'PublicGameTasks', 'PublicMusic', 'PublicPictures', 'PublicVideos', 'QuickLaunch', `
-            'Recent', 'RecycleBinFolder', 'ResourceDir', 'RoamingAppData', 'SampleMusic', 'SamplePictures', 'SamplePlaylists', 'SampleVideos', 'SavedGames', 'SavedSearches', `
-            'SEARCH_CSC', 'SEARCH_MAPI', 'SearchHome', 'SendTo', 'SidebarDefaultParts', 'SidebarParts', 'StartMenu', 'Startup', 'SyncManagerFolder', 'SyncResultsFolder', `
-            'SyncSetupFolder', 'System', 'SystemX86', 'Templates', 'TreeProperties', 'UserProfiles', 'UsersFiles', 'Videos', 'Windows')]
-            [string]`$KnownFolder,
-            [Parameter(Mandatory = `$true)][string]`$Path
-    )
-
-    # Define known folder GUIDs
-    `$KnownFolders = @{
-        'AddNewPrograms' = 'de61d971-5ebc-4f02-a3a9-6c82895e5c04';'AdminTools' = '724EF170-A42D-4FEF-9F26-B60E846FBA4F';'AppUpdates' = 'a305ce99-f527-492b-8b1a-7e76fa98d6e4';
-        'CDBurning' = '9E52AB10-F80D-49DF-ACB8-4330F5687855';'ChangeRemovePrograms' = 'df7266ac-9274-4867-8d55-3bd661de872d';'CommonAdminTools' = 'D0384E7D-BAC3-4797-8F14-CBA229B392B5';
-        'CommonOEMLinks' = 'C1BAE2D0-10DF-4334-BEDD-7AA20B227A9D';'CommonPrograms' = '0139D44E-6AFE-49F2-8690-3DAFCAE6FFB8';'CommonStartMenu' = 'A4115719-D62E-491D-AA7C-E74B8BE3B067';
-        'CommonStartup' = '82A5EA35-D9CD-47C5-9629-E15D2F714E6E';'CommonTemplates' = 'B94237E7-57AC-4347-9151-B08C6C32D1F7';'ComputerFolder' = '0AC0837C-BBF8-452A-850D-79D08E667CA7';
-        'ConflictFolder' = '4bfefb45-347d-4006-a5be-ac0cb0567192';'ConnectionsFolder' = '6F0CD92B-2E97-45D1-88FF-B0D186B8DEDD';'Contacts' = '56784854-C6CB-462b-8169-88E350ACB882';
-        'ControlPanelFolder' = '82A74AEB-AEB4-465C-A014-D097EE346D63';'Cookies' = '2B0F765D-C0E9-4171-908E-08A611B84FF6';'Desktop' = @('B4BFCC3A-DB2C-424C-B029-7FE99A87C641');
-        'Documents' = @('FDD39AD0-238F-46AF-ADB4-6C85480369C7','f42ee2d3-909f-4907-8871-4c22fc0bf756');'Downloads' = @('374DE290-123F-4565-9164-39C4925E467B','7d83ee9b-2244-4e70-b1f5-5393042af1e4');
-        'Favorites' = '1777F761-68AD-4D8A-87BD-30B759FA33DD';'Fonts' = 'FD228CB7-AE11-4AE3-864C-16F3910AB8FE';'Games' = 'CAC52C1A-B53D-4edc-92D7-6B2E8AC19434';
-        'GameTasks' = '054FAE61-4DD8-4787-80B6-090220C4B700';'History' = 'D9DC8A3B-B784-432E-A781-5A1130A75963';'InternetCache' = '352481E8-33BE-4251-BA85-6007CAEDCF9D';
-        'InternetFolder' = '4D9F7874-4E0C-4904-967B-40B0D20C3E4B';'Links' = 'bfb9d5e0-c6a9-404c-b2b2-ae6db6af4968';'LocalAppData' = 'F1B32785-6FBA-4FCF-9D55-7B8E7F157091';
-        'LocalAppDataLow' = 'A520A1A4-1780-4FF6-BD18-167343C5AF16';'LocalizedResourcesDir' = '2A00375E-224C-49DE-B8D1-440DF7EF3DDC';'Music' = @('4BD8D571-6D19-48D3-BE97-422220080E43','a0c69a99-21c8-4671-8703-7934162fcf1d');
-        'NetHood' = 'C5ABBF53-E17F-4121-8900-86626FC2C973';'NetworkFolder' = 'D20BEEC4-5CA8-4905-AE3B-BF251EA09B53';'OriginalImages' = '2C36C0AA-5812-4b87-BFD0-4CD0DFB19B39';
-        'PhotoAlbums' = '69D2CF90-FC33-4FB7-9A0C-EBB0F0FCB43C';'Pictures' = @('33E28130-4E1E-4676-835A-98395C3BC3BB','0ddd015d-b06c-45d5-8c4c-f59713854639');
-        'Playlists' = 'DE92C1C7-837F-4F69-A3BB-86E631204A23';'PrintersFolder' = '76FC4E2D-D6AD-4519-A663-37BD56068185';'PrintHood' = '9274BD8D-CFD1-41C3-B35E-B13F55A758F4';
-        'Profile' = '5E6C858F-0E22-4760-9AFE-EA3317B67173';'ProgramData' = '62AB5D82-FDC1-4DC3-A9DD-070D1D495D97';'ProgramFiles' = '905e63b6-c1bf-494e-b29c-65b732d3d21a';
-        'ProgramFilesX64' = '6D809377-6AF0-444b-8957-A3773F02200E';'ProgramFilesX86' = '7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E';'ProgramFilesCommon' = 'F7F1ED05-9F6D-47A2-AAAE-29D317C6F066';
-        'ProgramFilesCommonX64' = '6365D5A7-0F0D-45E5-87F6-0DA56B6A4F7D';'ProgramFilesCommonX86' = 'DE974D24-D9C6-4D3E-BF91-F4455120B917';'Programs' = 'A77F5D77-2E2B-44C3-A6A2-ABA601054A51';
-        'Public' = 'DFDF76A2-C82A-4D63-906A-5644AC457385';'PublicDesktop' = 'C4AA340D-F20F-4863-AFEF-F87EF2E6BA25';'PublicDocuments' = 'ED4824AF-DCE4-45A8-81E2-FC7965083634';
-        'PublicDownloads' = '3D644C9B-1FB8-4f30-9B45-F670235F79C0';'PublicGameTasks' = 'DEBF2536-E1A8-4c59-B6A2-414586476AEA';'PublicMusic' = '3214FAB5-9757-4298-BB61-92A9DEAA44FF';
-        'PublicPictures' = 'B6EBFB86-6907-413C-9AF7-4FC2ABF07CC5';'PublicVideos' = '2400183A-6185-49FB-A2D8-4A392A602BA3';'QuickLaunch' = '52a4f021-7b75-48a9-9f6b-4b87a210bc8f';
-        'Recent' = 'AE50C081-EBD2-438A-8655-8A092E34987A';'RecycleBinFolder' = 'B7534046-3ECB-4C18-BE4E-64CD4CB7D6AC';'ResourceDir' = '8AD10C31-2ADB-4296-A8F7-E4701232C972';
-        'RoamingAppData' = '3EB685DB-65F9-4CF6-A03A-E3EF65729F3D';'SampleMusic' = 'B250C668-F57D-4EE1-A63C-290EE7D1AA1F';'SamplePictures' = 'C4900540-2379-4C75-844B-64E6FAF8716B';
-        'SamplePlaylists' = '15CA69B3-30EE-49C1-ACE1-6B5EC372AFB5';'SampleVideos' = '859EAD94-2E85-48AD-A71A-0969CB56A6CD';'SavedGames' = '4C5C32FF-BB9D-43b0-B5B4-2D72E54EAAA4';
-        'SavedSearches' = '7d1d3a04-debb-4115-95cf-2f29da2920da';'SEARCH_CSC' = 'ee32e446-31ca-4aba-814f-a5ebd2fd6d5e';'SEARCH_MAPI' = '98ec0e18-2098-4d44-8644-66979315a281';
-        'SearchHome' = '190337d1-b8ca-4121-a639-6d472d16972a';'SendTo' = '8983036C-27C0-404B-8F08-102D10DCFD74';'SidebarDefaultParts' = '7B396E54-9EC5-4300-BE0A-2482EBAE1A26';
-        'SidebarParts' = 'A75D362E-50FC-4fb7-AC2C-A8BEAA314493';'StartMenu' = '625B53C3-AB48-4EC1-BA1F-A1EF4146FC19';'Startup' = 'B97D20BB-F46A-4C97-BA10-5E3608430854';
-        'SyncManagerFolder' = '43668BF8-C14E-49B2-97C9-747784D784B7';'SyncResultsFolder' = '289a9a43-be44-4057-a41b-587a76d7e7f9';'SyncSetupFolder' = '0F214138-B1D3-4a90-BBA9-27CBC0C5389A';
-        'System' = '1AC14E77-02E7-4E5D-B744-2EB1AE5198B7';'SystemX86' = 'D65231B0-B2F1-4857-A4CE-A8E7C6EA7D27';'Templates' = 'A63293E8-664E-48DB-A079-DF759E0509F7';
-        'TreeProperties' = '5b3749ad-b49f-49c1-83eb-15370fbd4882';'UserProfiles' = '0762D272-C50A-4BB0-A382-697DCD729B80';'UsersFiles' = 'f3ce0f7c-4901-4acc-8648-d5d44b04ef8f';
-        'Videos' = @('18989B1D-99B5-455B-841C-AB7C74E4DDFC','35286a68-3c57-41a1-bbb1-0eae73d76c95');'Windows' = 'F38BF404-1D43-42F2-9305-67DE0B28FC23';
-    }
-
-    `$Type = ([System.Management.Automation.PSTypeName]'KnownFolders').Type
-    If (-not `$Type) {
-        `$Signature = @'
-[DllImport(`"shell32.dll`")]
-public extern static int SHSetKnownFolderPath(ref Guid folderId, uint flags, IntPtr token, [MarshalAs(UnmanagedType.LPWStr)] string path);
-'@
-        `$Type = Add-Type -MemberDefinition `$Signature -Name 'KnownFolders' -Namespace 'SHSetKnownFolderPath' -PassThru
-    }
-
-	If (!(Test-Path `$Path -PathType Container)) {
-		New-Item -Path `$Path -Type Directory -Force -Verbose
-    }
-
-    If (Test-Path `$Path -PathType Container) {
-        ForEach (`$guid in `$KnownFolders[`$KnownFolder]) {
-            Write-Verbose `"Redirecting `$KnownFolders[`$KnownFolder]`"
-            `$result = `$Type::SHSetKnownFolderPath([ref]`$guid, 0, 0, `$Path)
-            If (`$result -ne 0) {
-                `$errormsg = `"Error redirecting `$(`$KnownFolder). Return code `$(`$result) = `$((New-Object System.ComponentModel.Win32Exception(`$result)).message)`"
-                Throw `$errormsg
-            }
-        }
-    } Else {
-        Throw New-Object System.IO.DirectoryNotFoundException `"Could not find part of the path `$Path.`"
-    }
-	
-	Attrib +r `$Path
-    Return `$Path
+Add-content $LogFilePath -value $LogMessage
 }
 
 
 ##########################################################################
-## Redirect Known Folder
+##	Delete Empty Folders
 ##########################################################################
-Function Redirect-Folder {
-    Param (
-        `$GetFolder,
-        `$SetFolder,
-        `$Target,
-        `$CopyContents
-    )
 
-    `$Folder = Get-KnownFolderPath -KnownFolder `$GetFolder
-    If (`$Folder -ne `$Target) {
-        Write-Verbose `"Redirecting `$SetFolder to `$Target`"
-        Set-KnownFolderPath -KnownFolder `$SetFolder -Path `$Target
-        if(`$CopyContents -and `$Folder){
-            Get-ChildItem -Path `$Folder -ErrorAction Continue | Copy-Item -Destination `$Target -Recurse -Container -Force -Confirm:`$False -ErrorAction Continue
-        }
-        Attrib +h `$Folder
-    } Else {
-        Write-Verbose `"Folder `$GetFolder matches target. Skipping redirection.`"
+# Set to true to test the script
+$whatIf = $true
+
+# Remove hidden files, like thumbs.db
+$removeHiddenFiles = $true
+
+# Get hidden files or not. Depending on removeHiddenFiles setting
+$getHiddelFiles = !$removeHiddenFiles
+
+# Remove empty directories locally
+Function Delete-EmptyFolder($path)
+{
+    # Go through each subfolder, 
+    Foreach ($subFolder in Get-ChildItem -Force -Literal $path -Directory) 
+    {
+        # Call the function recursively
+        Delete-EmptyFolder -path $subFolder.FullName
+    }
+
+    # Get all child items
+    $subItems = Get-ChildItem -Force:$getHiddelFiles -LiteralPath $path
+
+    # If there are no items, then we can delete the folder
+    # Exlude folder: If (($subItems -eq $null) -and (-Not($path.contains("DfsrPrivate")))) 
+    If ($subItems -eq $null) 
+    {
+        Write-Host "Removing empty folder '${path}'"
+        WriteLog "Removing empty folder '${path}'"
+        Remove-Item -Force -Recurse:$removeHiddenFiles -LiteralPath $Path -WhatIf:$whatIf
     }
 }
-
-##########################################################################
-# Function to check whether a given username matches the list of Domain Admins
-##########################################################################
-function validateDomainAdmin{
-    
-    if ((Get-ADUser "$env:UserName" -Properties memberof).memberof -like “*Domain Admins*” ){
-         #Write-Host "$username is a Domain Admin"
-         return $true;
-         }else{
-        #Write-Host "$username not a Domain Admin."
-        return $false;
-
-        }
- }
 
 
 ##########################################################################
@@ -621,7 +477,7 @@ Function Start-Robocopy
         
         [string]$RobocopyParameter = '/E /Z /MIR /V /NP /R:3 /W:5 /MT',
         
-        [string]$LogFileName = "C:\Logs\Start-Robocopy-$(Get-Date -Format 'yyyyMMddhhmmss').log",
+        [string]$LogFileName = "$env:userprofile\Start-Robocopy-$(Get-Date -Format 'yyyyMMddhhmmss').log",
 
         [switch]$Tee = $false
     )
@@ -659,47 +515,14 @@ Function Start-Robocopy
     }
 }
 
-
-
 ##
 ##########################################################################
-##					End of Functions Section
+##                  End of Functions Section
 ##########################################################################
 ##           		Start of Script Operations
 ##########################################################################
 ###
 ###  SCRIPT OPERATIONS BEGIN
-
-#Add User Profile path to customized variables
-
-WriteLog "Setting User Profile paths based on configured required variables..."
-
-$LogFilePath = "$env:userprofile\$LogFileName"
-$OneDriveUserPath = "$env:userprofile\$OneDriveFolderName"
-$WorkFoldersPath = "$env:userprofile\$WorkFoldersName"
-$FirstOneDriveComplete = "$env:userprofile\$MigrationFlagFileName"
-
-	#Reset Logfile & set the Error Action to Continue
-	Get-ChildItem -Path $LogFilePath | Remove-Item -Force
-	$ErrorActionPreference = "Continue"
-
-    WriteLog "Configured Required Variable for This Logfile: $LogFilePath"
-    WriteLog "Configured Required Variable for Tenant ID: $TenantID"
-    WriteLog "Configured Required Variable for current Work Folder Root: $WorkFoldersPath"
-    WriteLog "Configured Required Variable for OneDrive Folder Root: $OneDriveUserPath"
-    WriteLog "Configured Required Variable for Migration Flag File: $FirstOneDriveComplete"
-    
-	#Log the SCript Runtime start
-	WriteLog "OneDrive Migration Script Run Start"
-
-    $isDomainAdmin = validateDomainAdmin
-
-#Set system.io variable for operations on Migration Flag file
-[System.IO.DirectoryInfo]$FirstOneDriveCompletePath = $FirstOneDriveComplete
-
-#Set system.io Variable to check for centralized/single Runtime of OneDrive vs Windows Bundled version
-$OneDriveProgFiles = "C:\Program Files\Microsoft OneDrive"
-[System.IO.DirectoryInfo]$OneDriveProgFilesPath = $OneDriveProgFiles
 
 
 #Restart self in x64
@@ -720,8 +543,64 @@ If (!([Environment]::Is64BitProcess)){
     Start-Transcript -Path $logFileX64
 }
 
+
+If($WorkFoldersName -eq $null){
+
+$WFRegPath = "HKCU:\Software\Policies\Microsoft\Windows\WorkFolders"
+$WFNameRegVal = "LocalFolderPath"
+
+$WorkFoldersName = Get-ItemProperty -Path $WFRegPath | Select-Object -ExpandProperty $WFNameRegVal
+
+#$WorkFoldersName = $WorkFoldersName |  Select-String -notmatch '%userprofile%\'
+
+if($WorkFoldersName -like '*%userprofile%*'){
+
+    $WorkFoldersName = $WorkFoldersName -replace '%userprofile%', ''
+}
+
+$WorkFoldersName = $WorkFoldersName.replace('\', '')
+
+}
+
+Write-Host "Value of Work Folders Variable is $WorkFoldersName"
+
+#Add User Profile path to customized variables
+
+$LogFilePath = "$env:userprofile\$LogFileName"
+$OneDriveUserPath = "$env:userprofile\$OneDriveFolderName"
+$WorkFoldersPath = "$env:userprofile\$WorkFoldersName"
+$FirstOneDriveComplete = "$OneDriveUserPath\$MigrationFlagFileName"
+
+
+Write-Host "Value of Work Folders Variable is $WorkFoldersPath"
+
+WriteLog "Setting User Profile paths based on configured required variables..."
+
+	#Reset Logfile & set the Error Action to Continue
+	Get-ChildItem -Path $LogFilePath | Remove-Item -Force
+	$ErrorActionPreference = "Continue"
+
+    WriteLog "Configured Required Variable for This Logfile: $LogFilePath"
+    WriteLog "Configured Required Variable for Tenant ID: $TenantID"
+    WriteLog "Configured Required Variable for current Work Folder Root: $WorkFoldersPath"
+    WriteLog "Configured Required Variable for OneDrive Folder Root: $OneDriveUserPath"
+    WriteLog "Configured Required Variable for Migration Flag File: $FirstOneDriveComplete"
+    
+	#Log the SCript Runtime start
+	WriteLog "OneDrive Migration Script Run Start"
+
+    #$isDomainAdmin = validateDomainAdmin
+
+#Set system.io variable for operations on Migration Flag file
+[System.IO.DirectoryInfo]$FirstOneDriveCompletePath = $FirstOneDriveComplete
+
+#Set system.io Variable to check for centralized/single Runtime of OneDrive vs Windows Bundled version
+$OneDriveProgFiles = "C:\Program Files\Microsoft OneDrive"
+[System.IO.DirectoryInfo]$OneDriveProgFilesPath = $OneDriveProgFiles
+
+
 #CREATE SILENT RUNNER (SO USER DOESN'T SEE A PS WINDOW)
-WriteLog "Creating Silent Launch of script (so User doesn't see a PS windows)."
+WriteLog "Creating Silent Launch of script (so User doesn't see a PS window)."
 $desiredBootScriptFolder = Join-Path $Env:ProgramData -ChildPath "WF-2-ODfB"
 $vbsSilentPSRunner = "
 Dim objShell,objFSO,objFile
@@ -741,8 +620,8 @@ Else
     WScript.Quit
 End If
 "
-$desiredBootScriptPath = Join-Path $desiredBootScriptFolder -ChildPath "WF-2-ODfB.ps1"
-$desiredVBSScriptPath = Join-Path $desiredBootScriptFolder -ChildPath "WF-2-ODfB.vbs"
+$desiredBootScriptPath = Join-Path $desiredBootScriptFolder -ChildPath "WF-2-ODfB-Mig.ps1"
+$desiredVBSScriptPath = Join-Path $desiredBootScriptFolder -ChildPath "WF-2-ODfB-Mig.vbs"
 
 if(![System.IO.Directory]::($desiredBootScriptFolder)){
     New-Item -Path $desiredBootScriptFolder -Type Directory -Force
@@ -750,6 +629,7 @@ if(![System.IO.Directory]::($desiredBootScriptFolder)){
 
 $vbsSilentPSRunner | Out-File $desiredVBSScriptPath -Force
 
+<#
 #ENSURE CONFIG REGISTRY KEYS ARE CREATED
 try{
     Write-Output "Adding registry keys for Onedrive"
@@ -766,10 +646,13 @@ try{
     Write-Error $_ -ErrorAction Continue
 }
 
+#>
+
 #REGISTER SCRIPT TO RUN AT LOGON
 WriteLog "Registering Script to run at logon"
 $wscriptPath = Join-Path $env:SystemRoot -ChildPath "System32\wscript.exe"
 $fullRunPath = "$wscriptPath `"$desiredVBSScriptPath`" `"$desiredBootScriptPath`""
+<#
 try{
     Write-Output "Adding logon registry key"
     New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name OnedriveAutoConfig -Value $fullRunPath -PropertyType String -Force -ErrorAction Stop
@@ -778,7 +661,7 @@ try{
     Write-Error "Failed to add logon registry keys, user config will likely fail" -ErrorAction Continue
     Write-Error $_ -ErrorAction Continue
 }
-
+#>
 
 #######################################################
 # Create a scheduled task to run the script once
@@ -789,7 +672,7 @@ $action = New-ScheduledTaskAction -Execute $wscriptPath -Argument "`"$desiredVBS
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Compatibility Win8
 $principal = New-ScheduledTaskPrincipal -GroupId S-1-5-32-545
 $task = New-ScheduledTask -Action $action -Settings $settings -Principal $principal
-Register-ScheduledTask -InputObject $task -TaskName "OnedriveAutoConfig"
+# Register-ScheduledTask -InputObject $task -TaskName "OnedriveAutoConfig"
 
 
 #######################################################
@@ -798,9 +681,11 @@ Register-ScheduledTask -InputObject $task -TaskName "OnedriveAutoConfig"
 #
 #######################################################
 
+WriteLog "Placing Powershell code for Scheduled-tasks"
+
 $localScriptContent = "
 <#
-    Name: WF-2-ODfB.ps1
+    Name: WF-2-ODfB-Mig.ps1
     Version: 0.4.1 (05 April 2022)
 .NOTES
     Author: Julian West
@@ -808,20 +693,44 @@ $localScriptContent = "
 .SYNOPSIS
     Migrate any active Work Folders to OneDrive for Business
 .DESCRIPTION
-    This script will migrate a Windows 10 Endpoint's User data sync settings
-    from Work Folders over to OneDrive for Business.  It is targeted to silently run 
-    OneDrive Setup (see note below), moves data from Work Folders to OneDrive folder via
-    Robocopy /Move, and sets redirection for Known Folders.  Leverages code from 
-    Jos Lieben's solution at https://www.lieben.nu/liebensraum/o4bclientautoconfig/
-    Requirements: Windows 10, Powershell script should run as an Admin if Script wasn't installed yet
+    This script is created by WF-2-ODfB.ps1 (Master Script) and is placed into a user's Scheduled Tasks to ensure that
+    a silent migration of a Windows 10 Endpoint's User data sync settings from Work Folders 
+    over to OneDrive for Business can occur automaticallyu.  
+    It is targeted to silently run OneDrive Setup and auto sign-in (if Hybrid joined to Azure AD), 
+    sets redirection for Known Folders, and moves data from Work Folders to OneDrive folder via Robocopy /Move.  
+    Leverages code from Jos Lieben's solution at https://www.lieben.nu/liebensraum/o4bclientautoconfig/
+    Requirements: Windows 10, Powershell 5x or above.
 .LINK
     https://github.com/J-DubApps
 #>
 
+### REQUIRED CONFIGURATION ###
+## *REQUIRED* Variables, required for successful script run.  These are set by the Master Script.  
+#
+
+# User Profile paths and customized variables set by Master Script - you can Adjust to your own env values - 
+
+`$LogFilePath = `"$env:userprofile\$LogFileName`"
+`$OneDriveUserPath = `"$env:userprofile\$OneDriveFolderName`"
+`$WorkFoldersPath = `"$env:userprofile\$WorkFoldersName`"
+`$FirstOneDriveComplete = `"$OneDriveUserPath\$MigrationFlagFileName`"
+
+#Set system.io variable for operations to check for Migration Flag file & Work Folders Path
+
+If([System.IO.Directory]::Exists(`$WorkFoldersPath)){`$WorkFoldersExist = `$true}else{`$WorkFoldersExist = `$false}
+
+if(![System.IO.File]::Exists(`$FirstOneDriveComplete)){`$ODFlagFileExist = `$false}else{`$ODFlagFileExist  = `$true}
+
+`$WF_and_Flagfile_Exist = `$null
+
+
+If((`$ODFlagFileExist -eq `$true)  -and (`$WorkFoldersExist -eq `$true)){`$WF_and_Flagfile_Exist = `$true}else{`$WF_and_Flagfile_Exist = `$false}
+    
+
 `$redirectFoldersToOnedriveForBusiness = `$$redirectFoldersToOnedriveForBusiness
 `$listOfFoldersToRedirectToOnedriveForBusiness = @("
 $listOfFoldersToRedirectToOnedriveForBusiness | % {
-        $localScriptContent += "@{`"knownFolderInternalName`"=`"$($_.knownFolderInternalName)`";`"knownFolderInternalIdentifier`"=`"$($_.knownFolderInternalIdentifier)`";`"desiredSubFolderNameInOnedrive`"=`"$($_.desiredSubFolderNameInOnedrive)`";`"copyContents`"=`"$($_.copyContents)`"},"
+        $localScriptContent += "@{`"knownFolderInternalName`"=`"$($_.knownFolderInternalName)`";`"knownFolderInternalIdentifier`"=`"$($_.knownFolderInternalIdentifier)`";`"desiredSubFolderNameInOnedrive`"=`"$($_.desiredSubFolderNameInOnedrive)`"},"
 }
 $localScriptContent = $localScriptContent -replace ".$"
 $localScriptContent += ")
@@ -833,19 +742,39 @@ $localScriptContent += ")
 `$desiredBootScriptFolder = `"$desiredBootScriptFolder`"
 `$desiredBootScriptPath = `"$desiredBootScriptPath`"
 Start-Transcript -Path `$logFile
-#ENSURE CONFIG REGISTRY KEYS ARE CREATED
-try{
-    Write-Output `"Adding registry keys for Onedrive`"
-    `$res = New-Item -Path `"HKCU:\Software\Microsoft\Onedrive`" -Confirm:`$False -ErrorAction SilentlyContinue
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name DefaultToBusinessFRE -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name DisablePersonalSync -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name EnableEnterpriseTier -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name EnableADAL -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
-    Write-Output `"Registry keys for Onedrive added`"
-}catch{
-    Write-Error `"Failed to add Onedrive registry keys, installation may not be consistent`" -ErrorAction Continue
-    Write-Error `$_ -ErrorAction Continue
+
+
+##########################################################################
+##		Main Functions Section - DO NOT MODIFY!!
+##########################################################################
+
+Function Log-InformationalEvent(`$Message){
+#########################################################################
+#	Writes an informational event to the event log
+#########################################################################
+`$QualifiedMessage = `$ClientName + `" Script: `" + `$Message
+Write-EventLog -LogName Application -Source Winlogon -Message `$QualifiedMessage -EventId 1001 -EntryType Information
 }
+
+Function Log-WarningEvent(`$Message){
+#########################################################################
+# Writes a warning event to the event log
+#########################################################################
+`$QualifiedMessage = `$ClientName + `" Script:`" + `$Message
+Write-EventLog -LogName Application -Source Winlogon -Message `$QualifiedMessage -EventId 1001 -EntryType Warning
+}
+
+Function WriteLog(`$LogString){
+##########################################################################
+##	Writes Run info to a logfile set in `$LogFile variable 
+##########################################################################
+
+#Param ([string]`$LogString)
+`$Stamp = (Get-Date).toString(`"yyyy/MM/dd HH:mm:ss`")
+`$LogMessage = `"$Stamp $LogString`"
+Add-content `$LogFilePath -value `$LogMessage
+}
+
 
 function returnEnclosedValue{
     Param(
@@ -884,6 +813,41 @@ function runProcess (`$cmd, `$params, `$windowStyle=1) {
     `$exitcode
     `$output
 }
+
+
+##
+##########################################################################
+##                  End of Functions Section
+##########################################################################
+##           		Start of Script Operations
+##########################################################################
+###
+###  SCRIPT OPERATIONS BEGIN
+
+WriteLog `"Script Operations Starting...`"
+
+WriteLog `"One Drive Flag File Exists: $ODFlagFileExist `"
+WriteLog `"Work Folders Exist: $WorkFoldersExist `"
+
+WriteLog `"One Drive Flag File & Work Folders Status: $WF_and_Flagfile_Exist `"
+#Write-Host `$WF_not_Exist
+#Write-Host `$wF_Exist_Flagfile_not_Exist
+
+#ENSURE CONFIG REGISTRY KEYS ARE CREATED
+<#
+try{
+    Write-Output `"Adding registry keys for Onedrive`"
+    `$res = New-Item -Path `"HKCU:\Software\Microsoft\Onedrive`" -Confirm:`$False -ErrorAction SilentlyContinue
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name DefaultToBusinessFRE -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name DisablePersonalSync -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name EnableEnterpriseTier -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name EnableADAL -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    Write-Output `"Registry keys for Onedrive added`"
+}catch{
+    Write-Error `"Failed to add Onedrive registry keys, installation may not be consistent`" -ErrorAction Continue
+    Write-Error `$_ -ErrorAction Continue
+}
+
 
 `$isOnedriveUpToDate = `$False
 #GET ONLINE VERSION INFO
@@ -985,6 +949,7 @@ Write-Output `"Checking existence of client folder`"
     Write-Output `"Starting client...`"
     & `$installedVersionPath
 }
+#>
 
 if(!`$redirectFoldersToOnedriveForBusiness){
     Stop-Transcript
@@ -1092,18 +1057,17 @@ Function Redirect-Folder {
     Param (
         `$GetFolder,
         `$SetFolder,
-        `$Target,
-        `$CopyContents
+        `$Target
     )
 
     `$Folder = Get-KnownFolderPath -KnownFolder `$GetFolder
     If (`$Folder -ne `$Target) {
         Write-Verbose `"Redirecting `$SetFolder to `$Target`"
         Set-KnownFolderPath -KnownFolder `$SetFolder -Path `$Target
-        if(`$CopyContents -and `$Folder){
-            Get-ChildItem -Path `$Folder -ErrorAction Continue | Copy-Item -Destination `$Target -Recurse -Container -Force -Confirm:`$False -ErrorAction Continue
-        }
-        Attrib +h `$Folder
+        #if(`$CopyContents -and `$Folder){
+        #    Get-ChildItem -Path `$Folder -ErrorAction Continue | Copy-Item -Destination `$Target -Recurse -Container -Force -Confirm:`$False -ErrorAction Continue
+        #}
+        #Attrib +h `$Folder
     } Else {
         Write-Verbose `"Folder `$GetFolder matches target. Skipping redirection.`"
     }
@@ -1114,7 +1078,8 @@ if(`$detectedFolderPath -and `$redirectFoldersToOnedriveForBusiness){
         Write-Output `"Redirecting `$(`$_.knownFolderInternalName) to `$detectedFolderPath\`$(`$_.desiredSubFolderNameInOnedrive)`"
         try{
             `$Target = Join-Path `$detectedFolderPath -ChildPath `$_.desiredSubFolderNameInOnedrive
-            Redirect-Folder -GetFolder `$_.knownFolderInternalName -SetFolder `$_.knownFolderInternalIdentifier -Target `$Target -CopyContents = `$_.copyContents
+            Redirect-Folder -GetFolder `$_.knownFolderInternalName -SetFolder `$_.knownFolderInternalIdentifier -Target `$Target 
+            # -CopyContents = `$_.copyContents
             Write-Output `"Redirection succeeded`"
         }catch{
             Write-Error `"Failed to redirect this folder!`" -ErrorAction Continue
@@ -1122,17 +1087,63 @@ if(`$detectedFolderPath -and `$redirectFoldersToOnedriveForBusiness){
         }
     }
 }
+
+
+
+If (`$WF_and_Flagfile_Exist = `$false) {
+
+    #Work Folders or Flag File do not exist together at the same time, nothing to migrate or sync to OneDrive
+
+} Else {
+
+    #Work Folders and Flag File exist at the same time, prepare to move anything needed & remove WF
+
+    #Perform WF File Clean-up Migration
+
+     #robocopy `"$WorkFoldersPath`" `"$OneDriveUserPath`" /E /MOVE /XC /XN /XO
+
+    # robocopy `"C:\Users\Train20\Temp\TestWF`"  `"C:\Users\Train20\Temp\TestOD`" /E /MOVE /XC /XN /XO
+
+    #Start-Robocopy -Source `"$WorkFoldersPath`" -Destination `"$OneDriveUserPath`" -RobocopyParameter '/E /MOVE /XC /XN /XO' 
+
+    #Delete-EmptyFolder -path `"$WorkFoldersPath`"
+
+}
+
+
+If(`$ODFlagFileExist = `$false){
+
+        #Start-Robocopy -Source `"$WorkFoldersPath`" -Destination `"$OneDriveUserPath`" -RobocopyParameter '/E /MOVE' 
+        #New-Item -Path `$FirstOneDriveComplete -type file -force
+
+}else{
+
+}
+
+
 Stop-Transcript
-Exit
+
+Log-InformationalEvent(`"Work Folders to OneDrive Migration Script-run completed for `" + `$env:UserName)
+	
+WriteLog `"WF to OneDrive Migration Script-Run Complete`"
+
+Exit (0)
 "
+
+$localScriptContent | Out-File $desiredBootScriptPath -Force
+
+
+# Start-ScheduledTask -TaskName "OnedriveAutoConfig"
 
 #######################################################
 #
-# End ofcode for Local Script for scheduled task to 
+# End of code for Local Script for scheduled task to 
 # run the script once
 #
 #######################################################
 
+<#
+# Detecting Connection Type and if on VPN
 WriteLog "Determining connection type - VPN vs office, and if on Wired/Wireless LAN"
 
 #Get Connection Type
@@ -1218,11 +1229,14 @@ If($VPNConnected -eq $true){$ConnectionType="VPN"}
 
 #Write-Output "Connection type is: $ConnectionType"
 
+#>
+
 ### Check to see if this endpoint is using the Centralized/single-runtime installation of OneDrive or not
 ### If machine has the Centralized/single-runtime then check registry for the OneDriveSetup.exe location
 ### If machine does NOT have the Centralized/single-runtime of OneDrive, assume Windows-bundled OneDriveSetup.exe
 
 
+<#
 If (Test-Path -Path $OneDriveProgFilesPath.FullName) {
 	
     $OneDriveVersion = Get-ItemPropertyValue -Path HKLM:\Software\Microsoft\OneDrive -Name Version
@@ -1237,8 +1251,10 @@ If (Test-Path -Path $OneDriveProgFilesPath.FullName) {
 	$OneDriveExe = $env:localappdata + "\Microsoft\OneDrive\OneDrive.exe"
 	#"Path doesn't exist."
 }
- 
- 
+
+#>
+
+
  ###Cleans up duplicate Desktop Shortcuts - Comment out to disable this section
  ###
  ### This section cleans up any duplicate Chrome, Teams, or MS Edge shortcuts.
@@ -1257,9 +1273,11 @@ $DuplicateNames = @(
     "*Chrome*"
 )
 
-Get-ChildItem -Path $DesktopPath -Filter *.lnk -Include $DuplicateNames | Where {$_.Name -like "*-*.lnk"} | Remove-Item -Force
-Get-ChildItem -Path $DesktopPath -Filter *.url -Include $DuplicateNames | Where {$_.Name -like "*-*.url"} | Remove-Item -Force
+Get-ChildItem -Path $DesktopPath -Filter *.lnk -Include $DuplicateNames | Where-Object {$_.Name -like "*-*.lnk"} | Remove-Item -Force
+Get-ChildItem -Path $DesktopPath -Filter *.url -Include $DuplicateNames | Where-Object {$_.Name -like "*-*.url"} | Remove-Item -Force
  
+<#
+#MIGRATION TASKS
 
  ### If the Migration Flag File is not present, perform the Full One Drive Setup in silent mode, 
  ### migrate Worl Folder data, and Set Registry to run OneDrive 
@@ -1357,7 +1375,9 @@ Get-ChildItem -Path $DesktopPath -Filter *.url -Include $DuplicateNames | Where 
 		$OneDriveUserRegValName = "OneDrive"
 		$OneDriveRegVal = $OneDriveExe + " /background"
 		New-ItemProperty -Path $OneDriveUserRegPath -Name $OneDriveUserRegValName -Value $OneDriveRegVal -PropertyType String -Force 
-		
+ 
+        # Robocopy Process and Migration Here
+
         #robocopy "$WorkFoldersPath" "$OneDriveUserPath" /S /Move
         $MigrateWorkFolders = True
 		#Start-Sleep -Seconds 5
@@ -1373,8 +1393,9 @@ $WorkFoldersAutoProvisionVal = "0"
 Remove-ItemProperty -Path $WorkFoldersRegPath -Name $WorkFoldersSyncURL -Force 
 
 New-ItemProperty -Path $WorkFoldersRegPath -Name "AutoProvision" -Value $WorkFoldersAutoProvisionVal -PropertyType DWord -Force 
+#>
 
-
+<#
 # Set (or Re-tatoo if GPO is being used) OneDrive Folder-Redirection Settings to ensure OneDrive Path is used by Windows Explorer 
 # Known Folders and integrated shortcuts - instead of WF Paths
 # 
@@ -1408,14 +1429,14 @@ $PersonalRegData = Get-ItemProperty -Path $UserShellRegPath | Select-Object -Exp
 
 # Begin Checks to see if any Windows Shell registry entries are set to "Work Folders" path, and correct to OneDrive path if needed
 
-If ($PersonalRegData = "$env:userprofile\Work Folders\Documents") {
+If ($PersonalRegData = "$WorkFoldersPath\Documents") {
 	
 	New-ItemProperty -Path $UserShellRegPath -Name $PersonalRegValName -Value $RedirectDocumentsRegVal -PropertyType ExpandString -Force 
 	WriteLog "Setting Personal Reg Documents Path"	
 		
 } Else {
 	
-	WriteLog "Personal Reg Documents Path is set to OneDrive"	
+	WriteLog "Personal Reg Documents Path is not set to Work Folders"	
 }
 
 If ($DocumentsRegData = "$WorkFoldersPath\Documents") {
@@ -1425,7 +1446,7 @@ If ($DocumentsRegData = "$WorkFoldersPath\Documents") {
 		
 } Else {
 
-	WriteLog "Documents Registry Path Redirection is set to OneDrive"		
+	WriteLog "Documents Registry Path Redirection not set to Work Folders"		
 }
 
 
@@ -1436,7 +1457,7 @@ If ($LocalDocumentsRegData = "$WorkFoldersPath\Documents") {
 		
 } Else {
 	
-	WriteLog "Documents Folder Redirection Path is set to OneDrive"
+	WriteLog "Documents Folder Redirection Path is not set to Work Folders"
 }
 
 If ($LocalDesktopRegData = "$WorkFoldersPath\Desktop") {
@@ -1447,7 +1468,7 @@ If ($LocalDesktopRegData = "$WorkFoldersPath\Desktop") {
 		
 } Else {
 
-	WriteLog "Desktop Folder Redirection Path is set to OneDrive"		
+	WriteLog "Desktop Folder Redirection Path is not set to Work Folders"		
 }
 
 If ($DesktopRegData = "$WorkFoldersPath\Desktop") {
@@ -1458,7 +1479,7 @@ If ($DesktopRegData = "$WorkFoldersPath\Desktop") {
 		
 } Else {
 
-	WriteLog "Personal Reg Desktop Path is set to OneDrive"
+	WriteLog "Personal Reg Desktop Path is not set to Work Folders"
 }
 
 If ($PicuturesRegData = "$WorkFoldersPath\Pictures") {
@@ -1469,7 +1490,7 @@ If ($PicuturesRegData = "$WorkFoldersPath\Pictures") {
 		
 } Else {
 
-	WriteLog "Pictures Reg Desktop Path is set to OneDrive"
+	WriteLog "Pictures Reg Desktop Path is not set to Work Folders"
 }
 
 If ($LocalPicuturesRegData = "$WorkFoldersPath\Pictures") {
@@ -1480,7 +1501,7 @@ If ($LocalPicuturesRegData = "$WorkFoldersPath\Pictures") {
 		
 } Else {
 	
-	WriteLog "Pictures Folder Redirection Path is set to OneDrive"	
+	WriteLog "Pictures Folder Redirection Path is not set to Work Folders"	
 }
 
 If ($FavoritesRegData = "$WorkFoldersPath\Favorites") {
@@ -1491,14 +1512,23 @@ If ($FavoritesRegData = "$WorkFoldersPath\Favorites") {
 		
 } Else {
 
-	WriteLog "Favorites Folder Redirection Path is set to OneDrive"
+	WriteLog "Favorites Folder Redirection Path is not set to Work Folders"
 }
-	
 
-#Exit Script
-	Log-InformationalEvent("Work Folders to OneDrive Migration Script-run completed for " + $env:UserName)
+#>
+
+# Delete Empty Work Folders path if needed
+#Delete-EmptyFolder -path "$WorkFoldersPath"
+
+#End of Script - cleanup & Exit
+
+    Stop-Transcript
+
+    Log-InformationalEvent("Work Folders to OneDrive Migration Script-run completed for " + $env:UserName)
 	
-	WriteLog "WF to OneDrive Migration Script-Run Complete"
+	WriteLog "WF to OneDrive Migration Setup Script-Run Complete"
+    WriteLog "A Script should have been established in Scheduled Tasks to run actual Migration Steps"
+    
 
 
 	#Start-ScheduledTask -TaskName "OnedriveAutoConfig"
