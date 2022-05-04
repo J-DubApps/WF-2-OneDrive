@@ -133,10 +133,10 @@
 ## *REQUIRED* Variables, needed for successful script run.  Set to your own env values - 
 #
 
-$OneDriveFolderName = "OneDrive - McKool Smith" # 
+$OneDriveFolderName = "OneDrive - Tenant Name" # 
 # **required - this is the OneDrive folder name that will exist under %USERPROFILE%
-# This folder is usually named from your O365 Tenant Org name by default, or customized in GPO/Registry.
-# This default folder name can be confirmed via manual install of OneDrive on a standalone Windows endpoint.
+# This folder is usually named from your O365 Tenant's Org name by default, or is customized in GPO/Registry.
+# This default folder name can be confirmed via a single manual install of OneDrive on a standalone Windows endpoint.
 
 $LogFileName = "ODfB_MigChecks-$env:username.log"
 # This is the Log File name where activites will be logged, by default it includes the current Username 
