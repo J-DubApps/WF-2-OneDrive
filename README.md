@@ -3,7 +3,8 @@
 Description 
 	
 	This PS script will migrate a Windows 10 Endpoint's User Work Folder sync settings
-	to OneDrive for Business.
+	and data over to OneDrive for Business.  You can optionally have it not do
+	the data migration part, and only configure OneDrive and redirect Known Folders.
        
        It is targeted to silently run OneDrive Setup and sign-in the user 
        (if computer in a Hybrid Azure AD domain join), sets redirection for Known Folders, 
