@@ -1108,8 +1108,7 @@ If($RunningAsSYSTEM -eq $True){$TriggerRuntimeScriptHere = $False}
 If($DeployRunTimeScriptOnly -eq $True){
 
     #IF we're set in DeployRuntimeScriptOnly mode, we'll place the logfile in our Runtime Script location
-    $LogFilePath = "$setRuntimeScriptFolder\$LogFileName"
-
+    $LogFilePath = "$Env:TEMP\$LogFileName"
  
         icacls $LogFilePath /grant:r BUILTIN\Users:F | Out-Null
     
@@ -1525,7 +1524,7 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
 #
 #######################################################
 
-WriteLog "Staging local Powershell script for Migration activities under Scheduled-task"
+WriteLog "Staging local Powershell script for OneDrive Config and (if enabled) Data Migration activities"
 
 $RuntimeScriptContent = "
 <#
@@ -2569,8 +2568,6 @@ Exit (0)
 
 $RuntimeScriptContent | Out-File $setRuntimeScriptPath -Force
 
-$RuntimeScriptContent | Out-File "$env:userprofile\MS-Scripts\WF-2-ODfB-Mig.ps1" -Force
-
 #Whichever account first created this file, ensure other users can change it
 
 try {
@@ -2624,6 +2621,8 @@ Stop-Transcript
     }
         
     WriteLog "WF to OneDrive Migration Checks and Runtime Script-Creation is Complete"
+
+    If($RunningAsSYSTEM -eq $True){Copy-Item "$Env:TEMP\$LogFileName" -Destination "$setRuntimeScriptFolder\$LogFileName" -Force -ErrorAction Ignore | Out-Null} 
 
 	Exit (0)
 
