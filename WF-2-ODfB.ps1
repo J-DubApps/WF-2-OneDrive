@@ -208,7 +208,7 @@ $DeployRunTimeScriptOnly = $True # <---- Set to "True" to only stage the Runtime
 #   NOTE: DeployRunTimeScriptOnly setting is intended for scenarios like MECM Deployment to remote PC endpoints, or when you want migration to run for other users of a PC endpoint, etc. 
 $enableFilesOnDemand = $False # <---- Default = "False" and setting to "True" will requires this Master Script to run ONCE with Admin rights to succeed.  This setting requires Win 10 1709 minimum or higher.
 $cleanDesktopDuplicates = $False # <---- Set to True if you want the Runtime script to clean up a user's duplicate Desktop Shortcuts before Work Folders data migration.
-$GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime Script to perform a refresh of GPO/Registry at the end of its setup/config/migration run.  Helps get GPOs in place if needed. Default is "True".
+$GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime Script to perform a refresh of Group Policies at the end of its setup/config/migration run.  Helps get GPOs in place if needed. Default is "True".
 
 $xmlDownloadURL = "https://g.live.com/1rewlive5skydrive/ODSUInsider"
 $minimumOfflineVersionRequired = 19
