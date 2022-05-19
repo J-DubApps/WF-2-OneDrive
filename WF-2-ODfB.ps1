@@ -2110,7 +2110,7 @@ WriteLog `"Checking existence of client folder`"
 
 #Clean Up any old Robocopy Log Files older than 1 days (a lot of these get created during the scheduled-runs, even if no copies are performed).  Adjust to keep these longer if you want.
 
-Get-ChildItem -Path `"`$env:userprofile\Start-Robocopy-*`" | Where-Object {(`$_.LastWriteTime -lt (Get-Date).AddDays(-1))} | Remove-Item
+Get-ChildItem -Path `"`$env:userprofile\Start-Robocopy-*`" | Where-Object {(`$_.LastWriteTime -lt (Get-Date).AddDays(-1))} | Remove-Item -Force -ErrorAction Ignore | Out-Null
 
 # Perform First Migration if MIGRATION FLAG FILE <> Exist + Work Folders Path Exists
 
