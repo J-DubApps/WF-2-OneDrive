@@ -164,7 +164,14 @@
 #
 ###############################################################################################
 
-# ************************************************
+#-----------------------------------------------------------[Execution]------------------------------------------------------------
+[CmdletBinding()]
+PARAM(	
+	[parameter(ValueFromPipeline=$true,
+				ValueFromPipelineByPropertyName=$true,
+				Mandatory=$false)]
+	[switch]$DeployRunTimeScriptOnly=$false
+)
 
 ### REQUIRED CONFIGURATION ###
 ## *REQUIRED* Variables, needed for successful script run.  Set to your own env values - 
@@ -204,8 +211,8 @@ $redirectFoldersToOnedriveForBusiness = $True # <--- Set to "False" if you do no
 #       in place.  If Known Folders cannot be redirected, the script will fallback to "Basic" redirection via Registry mods for only the 4 Default folders: Desktop, Documents, Favorites, and Pictures.
 $SkipScheduledTaskCreation = $False # <---- Set to "True" if you do NOT want this script to create a Scheduled Task during run.  DeployRunTimeScriptOnly variable below renders this setting to "True".
 $TriggerRuntimeScriptHere = $False # <---- Default = "False". Set to "True" if want this Deployment / Master Script to also run the Config / Runtime Script at the end (rare). DeployRunTimeScriptOnly variable below renders this setting to "False". 
-$DeployRunTimeScriptOnly = $True # <---- Set to "True" to only stage the Runtime Script, deploy the Scheduled Task & Registry Run entry to run it, and NOT run any migration for the account running this (Master) script.  
-#   NOTE: DeployRunTimeScriptOnly setting is intended for scenarios like MECM Deployment to remote PC endpoints, or when you want migration to run for other users of a PC endpoint, etc. 
+$DeployMode = $True # <---- Set to "True" to stage the Runtime Script & deploy the Scheduled Task -or- Registry Run entry to run it, and NOT run any migration-attempt for the account running *THIS* (Master) script.  
+#   NOTE: DeployMode setting is intended for scenarios like MECM Deployment to remote PC endpoints, or when you want migration to run for other users of a PC endpoint, etc. 
 $enableFilesOnDemand = $False # <---- Default = "False" and setting to "True" will requires this Master Script to run ONCE with Admin rights to succeed.  This setting requires Win 10 1709 minimum or higher.
 $cleanDesktopDuplicates = $False # <---- Set to True if you want the Runtime script to clean up a user's duplicate Desktop Shortcuts before Work Folders data migration.
 $GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime Script to perform a refresh of Group Policies at the end of its setup/config/migration run.  Helps get GPOs in place if needed. Default is "True".
@@ -225,11 +232,27 @@ $MigrationFlagFileName = "FirstOneDriveComplete.flg"
 # It is saved during Runtime to: %userprofile%\$OneDriveFolderName\$MigrationFlagFileName
 #
 
+# $DeployRunTimeScriptOnly = $true # Debug/Test ONLY - Leave alone & remakred out for expected behavior!  You can un-remark this line -or- use the Switch "-DeployRunTimeScriptOnly" to make this script ONLY generate WF-2-ODfB-Mig.ps1 file & do NOTHING else.
+# If $true this script will not set OD Registry entires, nor will it create a Scheduled Task or Registry Run entry. This is here to allow you to stage the Runtime Script without the Config / Master Script doing anything else.  
+# Intended for Sandbox testing on multiple PCs or environments prior to prod deployment.
+# Script will plaace the Runtime Script in the same directory as this script via $PSScriptRoot.   
+
+If($DeployRunTimeScriptOnly -eq $true){
+    $DeployMode = $false
+    $enableFilesOnDemand = $false
+    $SkipScheduledTaskCreation = $true
+    $TriggerRuntimeScriptHere = $False 
+}
+
 # Set Variables for Location for the Config / Runtime script-placement and script-names
-$setRuntimeScriptFolder = Join-Path $Env:ProgramData -ChildPath "WF-2-ODfB"
+If($DeployRunTimeScriptOnly -ne $true){
+    $setRuntimeScriptFolder = Join-Path $Env:ProgramData -ChildPath "WF-2-ODfB"
+}else{
+    $setRuntimeScriptFolder = $PSScriptRoot
+}
+
 $setRuntimeScriptPath = Join-Path $setRuntimeScriptFolder -ChildPath "WF-2-ODfB-Mig.ps1"
 $setPSRuntimeLauncherPath = Join-Path $setRuntimeScriptFolder -ChildPath "WF-2-ODfB-Mig.vbs"
-
 
 ###KNOWN FOLDERS ARRAY### <-- This is the list of known folders that will be checked for redirection
 
@@ -1094,18 +1117,18 @@ $FirstOneDriveComplete = "$OneDriveUserPath\$MigrationFlagFileName"
 $RunningAsSYSTEMCheck = $env:computername + "$"
 $RunningAsSYSTEM = $null
 
-If($RunningAsSYSTEMCheck -eq $env:UserName){
-    $DeployRunTimeScriptOnly = $True
+If(($RunningAsSYSTEMCheck -eq $env:UserName) -and ($DeployRuntimeScriptOnly -ne $true)){
+    $DeployMode = $True
     $RunningAsSYSTEM = $True
     Write-Output "Running as SYSTEM, may be running non-Interacrtively via a Deployment tool (MECM etc)"
 }
 
-If($DeployRunTimeScriptOnly -eq $True){$TriggerRuntimeScriptHere = $False}
+If($DeployMode -eq $True){$TriggerRuntimeScriptHere = $False}
 If($RunningAsSYSTEM -eq $True){$TriggerRuntimeScriptHere = $False}
 
 #Set the Logfile Location based on this script's mode
 
-If($DeployRunTimeScriptOnly -eq $True){
+If(($DeployMode -eq $True) -and ($DeployRuntimeScriptOnly -ne $true)){
 
     #IF we're set in DeployRuntimeScriptOnly mode, we'll place the logfile in our Runtime Script location
     $LogFilePath = "$Env:TEMP\$LogFileName"
@@ -1173,8 +1196,6 @@ if($WorkFoldersName -like '*%userprofile%*'){
    
 }
 
-#$WorkFoldersName = $WorkFoldersName.replace('\', '')
-
 If(!$WorkFoldersName -eq $null){$WorkFoldersName = $WorkFoldersName.replace('\', '')}
 
 }
@@ -1186,6 +1207,7 @@ If($WorkFoldersName){$WorkFoldersPath = "$env:userprofile\$WorkFoldersName"}
 If(!$RunningAsSYSTEM){Write-Output "Value of Work Folders Name Variable is $WorkFoldersName"}
 
 If(!$RunningAsSYSTEM){Write-Output "Value of Work Folders Path Variable is $WorkFoldersPath"}
+If(!$RunningAsSYSTEM){Write-Output "Configured Path for OneDrive Folder Root: $OneDriveUserPath"}
 
 
 $PrimaryTenantDomainTLD = $PrimaryTenantDomain.LastIndexOf('.')
@@ -1195,13 +1217,18 @@ $PrimaryTenantSubDomain = $PrimaryTenantDomain.Substring(0,$PrimaryTenantDomainT
 
 WriteLog "Configured Primary Tenant Domain: $PrimaryTenantDomain"
 WriteLog "Primary Domain Name without TLD is $PrimaryTenantSubDomain"
+Write-Output "Configured Primary Tenant Domain: $PrimaryTenantDomain"
+Write-Output "Primary Domain Name without TLD is $PrimaryTenantSubDomain"
+
 If(!$RunningAsSYSTEM){WriteLog "Configured Migration Flag File: $FirstOneDriveComplete"}
 
 WriteLog "Configured Path for This Logfile: $LogFilePath"
+Write-Output "Configured Path for This Logfile: $LogFilePath"
+
 If(!$RunningAsSYSTEM){WriteLog "Configured Path for current Work Folder Root: $WorkFoldersPath"}
 If(!$RunningAsSYSTEM){WriteLog "Configured Path for OneDrive Folder Root: $OneDriveUserPath"}
-If(($RunningAsSYSTEM) -and ($DeployRunTimeScriptOnly)){WriteLog "Running as SYSTEM in Deployment Mode"}
-If(($RunningAsSYSTEM) -and ($DeployRunTimeScriptOnly)){Write-Output "Running as SYSTEM in Deployment Mode"}
+If(($RunningAsSYSTEM) -and ($DeployMode)){WriteLog "Running as SYSTEM in Deployment Mode"}
+If(($RunningAsSYSTEM) -and ($DeployMode)){Write-Output "Running as SYSTEM in Deployment Mode"}
 
 
 #Check for Local Admin Rights (expect that user is non-Admin unless running as SYSTEM or in Deploy Mode, but always check anyway)
@@ -1243,6 +1270,9 @@ $OneDriveProgFiles = "C:\Program Files\Microsoft OneDrive"
 
 If($WorkFoldersPathCheck){Write-Output "Work Folders Path checked and physically exists"}
 
+If($DeployRunTimeScriptOnly -ne $true){
+    #beginning of $DeployRuntimeScriptOnly IF check
+
 #CREATE RUNTIME WRAPPER (SO USER DOESN'T GET A PS WINDOW)
 WriteLog "Creating Silent VBS Launcher for Runtime Script (so User doesn't get a PS window)."
 $vbsSilentPSLauncher = "
@@ -1263,6 +1293,7 @@ Else
     WScript.Quit
 End If
 "
+}
 
 if(![System.IO.Directory]::($setRuntimeScriptFolder)){
     New-Item -Path $setRuntimeScriptFolder -Type Directory -Force
@@ -1371,7 +1402,7 @@ Foreach ($item in $ProfileList) {
 
 $wscriptPath = Join-Path $env:SystemRoot -ChildPath "System32\wscript.exe"
 $fullRunPath = "$wscriptPath `"$setPSRuntimeLauncherPath`" `"$setRuntimeScriptPath`""
-If(($DeployRunTimeScriptOnly -eq $false) -and ($SchedTasksRights -eq $false)){
+If(($DeployMode -eq $false) -and ($SchedTasksRights -eq $false)){
     WriteLog "Not running in Deployment mode and user does not have Scheduled Task rights = Registering Script to run at logon"
     If(($ODFlagFileExist -eq $false) -and (!$WorkFoldersPath -eq $null)){
         try{
@@ -1515,8 +1546,7 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
 
     } 
     
-}
-
+} #end of $DeployRuntimeScriptOnly IF check
 
 #######################################################
 #
