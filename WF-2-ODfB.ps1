@@ -186,7 +186,7 @@ $PrimaryTenantDomain = "yourO365domain.com"
 # **required - this is your Primary Office 365 domain used in your User Principal Names / UPN.
 # The script will use this domain to obtain your TenantID and perform other OneDrive setup functions.
 #
-$WorkFoldersName = "Work Folders"  # <--- Your Work Folders folder name, which will usually have its path under %USERPROFILE%.  Automatically-populated in non-GPO environments. 
+$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which will usually have its path under %USERPROFILE%.  Automatically-populated in non-GPO environments. 
 # **required - You can optionally set this manually, if you are going to utilize the "Specify work Folders Settings" GPO to disable Work Folders (this script will also attempt to do so).
 # If you do not set this variable, this script & the Runtime script both attempt to populate it by checking HKCU\Software\Policies\Microsoft\Windows\WorkFolders @ "LocalFolderPath" REG_SZ value, 
 # to populate this critial $WorkFoldersName variable. Just set it manually if you know the path to your Work Folders folder.
@@ -194,6 +194,10 @@ $WorkFoldersName = "Work Folders"  # <--- Your Work Folders folder name, which w
 # You absolutely should manually set this if you are using the following GPO setting during your migration:
 # User Configuration --> Admin Templates --> Windows Components --> Work Folders --> ENTRY "Specify Work Folders Settings" set to "Disabled" 
 # This script can "Auto" set this variable in environments where the above GPO IS NOT being used.
+
+#$TenantID = "00000000-0000-0000-0000-000000000000" # <--- Your Tenant ID, which is a GUID you can find at the link below and populate, or just let the Runtime Script attempt to 
+# auto-detect it based off of the $PrimaryTenantDomain variable above. Just set it manually if you already know your Office 365 Tenant ID.
+#
 
 #
 ##
@@ -1580,12 +1584,13 @@ $RuntimeScriptContent = "
 ## *REQUIRED* Variables, required for successful script run.  These are set by the Master Script.  
 #
 
-# User Profile paths and customized variables set by Master Script - you can Adjust to your own env values if needed - 
+# User Profile paths and customized variables set by Master Script or auto-filled here - you can Adjust to your own env values if needed - 
 
 `$OneDriveFolderName = `"$OneDriveFolderName`"
 `$WorkFoldersName = `"$WorkFoldersName`"
 `$PrimaryTenantDomain = `"$PrimaryTenantDomain`"
 `$PrimaryTenantSubDomain = `"$PrimaryTenantSubDomain`"
+`TenantID = `"$TenantID`"
 `$enableDataMigration = `$$enableDataMigration
 `$LogFileName = `"ODfB_Config_Run_`$env:username.log`"
 `$MigrationFlagFileName = `"$MigrationFlagFileName`" 
