@@ -120,9 +120,9 @@
 #
 # 1. Anyone can copy, modify and distribute this software.
 # 2. You have to include the license stated here, and any copyright notices with each and every distribution.
-# 3. You can use this software privately.  It is free to use for personal, non-commercial use.
-# 4. You are NOT authorized to use this software for commercial purposes.
-# 5. If you dare build a business engagement from this code, you risk open-sourcing the whole code base.
+# 3. You can use this software privately or commercially.  
+# 4. You are NOT authorized to use this software in any sealed-source software.
+# 5. If you dare build a business engagement from this code, you open-source all mods.
 # 6. If you modify it, you have to indicate changes made to the code.
 # 7. Any modifications of this code base MUST be distributed with the same license, GPLv3.
 # 8. This software is provided without warranty.
