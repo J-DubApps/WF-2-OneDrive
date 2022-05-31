@@ -58,8 +58,12 @@
 #       below, including waiving any liability for any and all effects caused by using this script. 
 #
 #		Script has no required Parameters but does have TWO REQUIRED variables you must edit below, for your 
-#       O365 Tenant's OneDrive settings. These need to be set before running tests & deployment. 
-        #GPO NOTE:  
+#       O365 Tenant's OneDrive settings. These need to be set before running tests & deployment. Script
+#       will not work without these variables set. 
+#       PS VERSION NOTE: Script was developed in, and targeted for, PowerShell 5.1 and was not tested on earlier 
+#       or later versions.  Only the "sweet spot" of Win10 default PS was tested.  It may work in PS 6+, but
+#       it is not guaranteed.
+#       GPO NOTE:  
 #       If you configure Work Folders and OneDrive settings via GPOs in your environment, it is important that you
 #       set a THIRD REQUIRED variable, "$WorkFoldersName".  See notes below next to the variable.
 #
