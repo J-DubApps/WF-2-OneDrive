@@ -31,7 +31,7 @@
 #       Known Folders that you require to be redirected (set below). The Configuration / Runtime script uses 
 #       Robocopy to MOVE data from the user's previous Work Folders Root over to their OneDrive folder via Robocopy.
 #       
-#       This Deployment (master) script, and the Runtime script it creates, are designed to be run non-elevated and
+#       This Deployment (Main) script, and the Runtime script it creates, are designed to be run non-elevated and
 #       without Admin rights; however, if you wish to have the Runtime script perform as a Scheduled Task on
 #       and endpoint, you must run this Deployment script itself once with Admin rights (deployed via MECM etc).
 #
@@ -65,9 +65,9 @@
 #       O365 Tenant's OneDrive settings. These need to be set before running tests & deployment. Script
 #       will not work without these variables set!
 #
-#       PS VERSION NOTE: Script was developed in, and targeted for, PowerShell 5.1 and was not tested on earlier 
-#       or later versions.  Only the "sweet spot" of Win10 default PS was tested.  It may work in PS 6+, but
-#       it is not guaranteed.
+#       PS VERSION NOTE: Script was developed in, and targeted for, PowerShell 5.1 and Windows 10 1709 and higher. 
+#       It will not wrun on earlier versions of PS, and is intended to operate in the "sweet spot" of Win10 and 
+#       the version of PS that ships with it.   This script may work in PS 6+, but it is not guaranteed.
 #
 #       GPO NOTE:  
 #       If you configured Work Folders and OneDrive settings via GPOs in your environment, it is important that you
@@ -222,10 +222,10 @@ $redirectFoldersToOnedriveForBusiness = $True # <--- Set to "False" if you do no
 #   NOTE: If the you get an "access denied error" during the Folder Redirection phase of the Runtime Script, your environment may have a GPO to "Prohibit User from manually redirecting Profile Folders" 
 #       in place.  If Known Folders cannot be redirected, the script will fallback to "Basic" redirection via Registry mods for only the 4 Default folders: Desktop, Documents, Favorites, and Pictures.
 $SkipScheduledTaskCreation = $False # <---- Set to "True" if you do NOT want this script to create a Scheduled Task during run.  DeployRunTimeScriptOnly variable below renders this setting to "True".
-$TriggerRuntimeScriptHere = $False # <---- Default = "False". Set to "True" if want this Deployment / Master Script to also run the Config / Runtime Script at the end (rare). DeployRunTimeScriptOnly variable below renders this setting to "False". 
-$DeployMode = $True # <---- Set to "True" to stage the Runtime Script & deploy the Scheduled Task -or- Registry Run entry to run it, and NOT run any migration-attempt for the account running *THIS* (Master) script.  
+$TriggerRuntimeScriptHere = $False # <---- Default = "False". Set to "True" if want this Deployment / Main Script to also launch the Runtime Script at the end (rare). DeployRunTimeScriptOnly variable below renders this setting to "False". 
+$DeployMode = $True # <---- Set to "True" to stage the Runtime Script & deploy the Scheduled Task -or- Registry Run entry to run it, and NOT run any migration-attempt for the account running *THIS* (Main) script.  
 #   NOTE: DeployMode setting is intended for scenarios like MECM Deployment to remote PC endpoints, or when you want migration to run for other users of a PC endpoint, etc. 
-$enableFilesOnDemand = $False # <---- Default = "False" and setting to "True" will requires this Master Script to run ONCE with Admin rights to succeed.  This setting requires Win 10 1709 minimum or higher.
+$enableFilesOnDemand = $False # <---- Default = "False" and setting to "True" will requires this Main Script to run ONCE with Admin rights to enable this OneDrive feature.  This setting requires Win 10 1709 minimum or higher.
 $cleanDesktopDuplicates = $False # <---- Set to True if you want the Runtime script to clean up a user's duplicate Desktop Shortcuts before Work Folders data migration.
 $GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime Script to perform a refresh of Group Policies at the end of its setup/config/migration run.  Helps get GPOs in place if needed. Default is "True".
 
@@ -250,8 +250,9 @@ $MigrationFlagFileName = "FirstOneDriveComplete.flg"
 # It is saved during Runtime to: %userprofile%\$OneDriveFolderName\$MigrationFlagFileName
 #
 
-# $DeployRunTimeScriptOnly = $true # Debug/Test ONLY - Leave alone & remakred out for expected behavior!  You can un-remark this line -or- use the Switch "-DeployRunTimeScriptOnly" to make this script ONLY generate WF-2-ODfB-Mig.ps1 file & do NOTHING else.
-# If $true this script will not set OD Registry entires, nor will it create a Scheduled Task or Registry Run entry. This is here to allow you to stage the Runtime Script without the Config / Master Script doing anything else.  
+# $DeployRunTimeScriptOnly = $true  ## Un-comment this for Debug/Testing ONLY - Leave alone & remakred out for expected behavior!  You can un-remark this line -or- use the Parameter Switch "-DeployRunTimeScriptOnly" to make 
+# the script ONLY generate WF-2-ODfB-Mig.ps1 file & do NOTHING else.  Script will not set OD Registry entires, nor will it disable Work Folder sync or create a Scheduled Task or Registry Run entry. 
+# The above variable is to allow you to Runtime Script without the Deployment Script doing anything else.  
 # Intended for Sandbox testing on multiple PCs or environments prior to prod deployment.
 # Script will plaace the Runtime Script in the same directory as this script via $PSScriptRoot.   
 
@@ -1443,7 +1444,7 @@ If(($DeployMode -eq $false) -and ($SchedTasksRights -eq $false)){
 If(($SchedTasksRights -eq $true) -and ($SkipScheduledTaskCreation -eq $false)){
 
 # This Scheduled Task section creates the Scheduled Task for "All users" by default, in case the target user getting 
-# migrated is NOT the same user who runs this Master Script (e.g. MECM deployment of this script, or otherwise running it as an Admin user).
+# migrated is NOT the same user who runs this Main Script (e.g. MECM deployment of this script, or otherwise running it as an Admin user).
 # First thing's first, if there are a LOT of User profiles on this machine, we aren't going to set the Scheduled Task at all.   Becuase 
 # this could be a multi-user machine, and we would rather just let the Runtime Script run as a Logon process (HKCU...\Run) or something else on 
 # such a Multi-User Machine.  So if there are more than 5 User Profiles on this machine, we do not set the Scheduled Task.
@@ -1589,7 +1590,7 @@ $RuntimeScriptContent = "
 .SYNOPSIS
     Migrate any active Work Folders to OneDrive for Business
 .DESCRIPTION
-    This script is created by WF-2-ODfB.ps1 (Master Script) and is placed into a user's Scheduled Tasks to ensure that
+    This script is created by WF-2-ODfB.ps1 (Maain Script) and is placed into a user's Scheduled Tasks to ensure that
     a silent migration of a Windows 10 Endpoint's User data sync settings from Work Folders 
     over to OneDrive for Business can occur automatically.  
     It is targeted to silently run OneDrive Setup and auto sign-in (if Hybrid joined to Azure AD), 
@@ -1600,10 +1601,10 @@ $RuntimeScriptContent = "
 #>
 
 ### REQUIRED CONFIGURATION ###
-## *REQUIRED* Variables, required for successful script run.  These are set by the Master Script.  
+## *REQUIRED* Variables, required for successful script run.  These are set by the Main (boss/deployment) Script.  
 #
 
-# User Profile paths and customized variables set by Master Script or auto-filled here - you can Adjust to your own env values if needed - 
+# User Profile paths and customized variables set by Deployment Script or auto-filled here - you can Adjust to your own env values if needed - 
 
 `$OneDriveFolderName = `"$OneDriveFolderName`"
 `$WorkFoldersName = `"$WorkFoldersName`"
@@ -2399,7 +2400,7 @@ Function Redirect-Folder {
 if((`$redirectFoldersToOnedriveForBusiness -eq `$true) -and (`$enableDataMigration -eq `$true)){
 
         # We're going to try and remove the Work Folders' AutoProvision value from the registry, if needed, but most environments require Admin rights to do this
-        # Master Script also will have already tried to remove this for all users of this system.
+        # Main / Deployment Script also will have already tried to remove this for all users of this system.
 
     try{
     WriteLog `"Removing Work Folders Sync URL and disabling AutoProvision`"
