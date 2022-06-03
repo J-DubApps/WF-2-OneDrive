@@ -61,7 +61,7 @@
 #       before ever running it in a production environment. By using this code you agree to the terms of the LICENSE
 #       below, including waiving any liability for any and all effects caused by using this script. 
 #
-#		REQUIREMENTS: Script has no required Parameters but does have REQUIRED variables you must edit below, for your 
+#       REQUIREMENTS: Script has no required Parameters but does have REQUIRED variables you must edit below, for your 
 #       O365 Tenant's OneDrive settings. These need to be set before running tests & deployment. Script
 #       will not work without these variables set!
 #
@@ -171,7 +171,7 @@
 #   04/15/2022  (JW)        Update for "Deployment Mode" (trigger Migration Runtime Script for other PC Endpoint users)
 #   05/05/2022  (JW)        Update allow "Secondary PCs" to "catch-up" when a user is migrated on their Primary PC.
 #   05/09/2022  (JW)        Runtime tests for MECM, Intune, and GPO-based deployments of this script
-#   05/11/2022  (JW)        Final Testing "Runtime Migration SCript" operation on Windows 10 Domain member PCs 
+#   05/11/2022  (JW)        Final Testing "Runtime Migration Script" operation on Windows 10 Domain member PCs 
 #
 ###############################################################################################
 
@@ -269,11 +269,11 @@ If($DeployRunTimeScriptOnly -ne $true){
 $setRuntimeScriptPath = Join-Path $setRuntimeScriptFolder -ChildPath "WF-2-ODfB-Mig.ps1"
 $setPSRuntimeLauncherPath = Join-Path $setRuntimeScriptFolder -ChildPath "WF-2-ODfB-Mig.vbs"
 
-###KNOWN FOLDERS ARRAY### <-- This is the list of known folders that will be checked for redirection
+###KNOWN FOLDERS ARRAY### <-- Below is the list of known folders that will be checked for redirection: MODIFY AS NEEDED!
 
-#Here you enable Redirection for Known Folders and select individual folders (which will be referenced as an Array)
-#Default is to redirect only 4 Known Folders (Desktop, Documents, Favorites, and Pictures)
-#You will need to review and: add any additional folders or subtract from these folders (or simply set the $redirectFoldersToOnedriveForBusiness variable to $False)
+#Here you enable Redirection for the listed Known Folders below
+#Default is to redirect only 4 "well-known" Known Folders (Desktop, Documents, Favorites, and Pictures) so you will need to modify as needed.
+#You can disable Known Fodler recirection by setting the $redirectFoldersToOnedriveForBusiness variable to $False.
 
 $listOfFoldersToRedirectToOnedriveForBusiness = @(#One line for each folder you want to redirect. For knownFolderInternalName choose from Get-KnownFolderPath function, for knownFolderInternalIdentifier choose from Set-KnownFolderPath function
     @{"knownFolderInternalName" = "Desktop";"knownFolderInternalIdentifier"="Desktop";"desiredSubFolderNameInOnedrive"="Desktop"},
@@ -1288,7 +1288,7 @@ If($WorkFoldersPathCheck){Write-Output "Work Folders Path checked and physically
 If($DeployRunTimeScriptOnly -ne $true){
     #beginning of $DeployRuntimeScriptOnly IF check
 
-#CREATE RUNTIME WRAPPER (SO USER DOESN'T GET A PS WINDOW)
+#CREATE RUNTIME WRAPPER TO LAUNCH THE MIGRATION RUNTIME SCRIPT (SO USER DOESN'T GET A PS WINDOW)
 WriteLog "Creating Silent VBS Launcher for Runtime Script (so User doesn't get a PS window)."
 $vbsSilentPSLauncher = "
 Dim objShell,objFSO,objFile
@@ -1354,8 +1354,8 @@ try{
 #REMOVE WORKFOLDERS AUTOPROVISION ENTRIES OF ALL USERS OF THIS SYSTEM
 
     #Note: By default the HKCU\Software\Policies\Microsoft\Windows\WorkFolder key does not allow non-admin users to modify the AutoProvision DWORD entry
-        # So he Runtime Script will not be able to stop Work Folder synce, even after successful Data Migration and Folder Re-direction
-        # So we'll try to modify Work Folder Sync entries for all users from this script *IF* it is being run with Admin rights.
+        # So the Runtime Script is not able to stop Work Folder sync, even after successful Data Migration and Folder Redirection
+        # So we'll try to modify Work Folder Sync entries for all users of this endpoint, here from this script *IF* it is being run with Admin rights.
         
 If($isLocalAdmin -eq $true){
     if(($redirectFoldersToOnedriveForBusiness -eq $true) -and ($enableDataMigration -eq $true)){
@@ -1409,7 +1409,7 @@ Foreach ($item in $ProfileList) {
 }
 
 }
-}
+}  #end of WORKFOLDERS AUTOPROVISION ENTRIES REMOVAL
 
 #######################################################
 # Set the Runtime Script to run at User Logon
@@ -1443,10 +1443,10 @@ If(($SchedTasksRights -eq $true) -and ($SkipScheduledTaskCreation -eq $false)){
 # migrated is NOT the same user who runs this Master Script (e.g. MECM deployment of this script, or otherwise running it as an Admin user).
 # First thing's first, if there are a LOT of User profiles on this machine, we aren't going to set the Scheduled Task at all.   Becuase 
 # this could be a multi-user machine, and we would rather just let the Runtime Script run as a Logon process (HKCU...\Run) or something else on 
-# such a Multi-User Machine.  So if there are more than 5 User Profiles on this machine, we will not set the Scheduled Task.
+# such a Multi-User Machine.  So if there are more than 5 User Profiles on this machine, we do not set the Scheduled Task.
 
 $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-Object { !($_.PSIsContainer) }
-    If($UserProfileFolderCount.Count -le 6){
+    If($UserProfileFolderCount.Count -le 6){    #modify this if you wish for multi-user machines to launch Runtime script as Scheduled Task 
 
     WriteLog "Creating scheduled task to run at Logon + run once several times today."
     Write-Output "Creating scheduled task to run at Logon + run once several times today."
@@ -1484,9 +1484,12 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
 
     #SET PERMS TO SCHEDULED TASK SO THAT IT CAN BE RUN BY ANYONE
 
+    #Set the Scheduled Task xml file to be managed by any Authenticated User
+
     icacls $env:windir\System32\tasks\OnedriveAutoConfig /grant:r BUILTIN\Users:F | Out-Null
     icacls $env:windir\System32\tasks\OnedriveAutoConfig /grant:r `"Authenticated Users`":F | Out-Null
 
+    #Set the Scheduled Task Registry entry to be managed by any Authenticated User
 
      $Taskname = "OnedriveAutoConfig"
 
@@ -1533,6 +1536,8 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
                 "reg add ""HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Schedule\TaskCache\Tree\{0}"" /f /v SD /t REG_BINARY /d {1}" -f $key.PSChildName, $newBinStr  | out-file -Encoding ascii $batfile  
                 ''
     
+            # Here we will set the the above REgistry entries to be triggered as a Scheduled Task for the machine, and run it immediately - then delete the task.
+
                 SCHTASKS /Create /f /tn "$updateTaskName" /sc onstart  /tr "cmd.exe /c $batfile" /ru system 
                 SCHTASKS /run /tn "$updateTaskName"
                 $count = 0
