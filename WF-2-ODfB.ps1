@@ -197,18 +197,15 @@ $PrimaryTenantDomain = "yourO365domain.com"
 # **required - this is your Primary Office 365 domain used in your User Principal Names / UPN.
 # The script will use this domain to obtain your TenantID and perform other OneDrive setup functions.
 #
-#$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which you can set here, or allow the script to auto-populate from the Registry of the endpoint launching the Runtime script. 
+#$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which you can set here, or have script auto-populate this name from the Registry of the Endpoint. 
 # **required - You can set this manually, and if you plan to "Specify work Folders Settings" GPO to disable Work Folders just remember this script will also attempt to do so.
-# If you do not set this variable, this script & the Runtime script both attempt "guess" the Work Folders path via HKCU\Software\Policies\Microsoft\Windows\WorkFolders @ "LocalFolderPath" REG_SZ value, 
-# to populate this critial $WorkFoldersName variable. Just set it manually if you know the path to your Work Folders folder. This path is usually found at the root of %USERPROFILE% on your endpoints.
-# When manually setting this, do not include any DRIVE / PATH info: just the FOLDER NAME.  
-# You absolutely should manually set this if you are using the following GPO setting during your migration:
+# If you do not set this variable, script attempts to"guess" the Work Folders root folder name from via HKCU\Software\Policies\Microsoft\Windows\WorkFolders @ "LocalFolderPath" REG_SZ value, 
+# to populate this critial $WorkFoldersName variable.   Because GPO has a variable "time-to-live" to disable Work Folders, I recommend un-commenting this and setting it manually 
+# to your Work Folders root folder name.  This path is usually found at the root of %USERPROFILE% on your endpoints.  When manually setting the above variable do not include 
+# any DRIVE / PATH info: just the FOLDER NAME.   
+# You absolutely should manually set this if you are using the following GPO setting during your migration, as it speeds along disabling Work Folders:
 # User Configuration --> Admin Templates --> Windows Components --> Work Folders --> ENTRY "Specify Work Folders Settings" set to "Disabled" 
-# This script can "Auto" set this variable in environments where the above GPO IS NOT being used.
-
-#$TenantID = "00000000-0000-0000-0000-000000000000" # <--- Your Tenant ID, which is a GUID you can find at the link below and populate, or just let the Runtime Script attempt to 
-# auto-detect it based off of the $PrimaryTenantDomain variable above. Just set it manually if you already know your Office 365 Tenant ID.
-#
+# This script will otherwise "Auto" set this variable in environments where the above GPO IS NOT being used.
 
 #
 ##
@@ -231,6 +228,12 @@ $DeployMode = $True # <---- Set to "True" to stage the Runtime Script & deploy t
 $enableFilesOnDemand = $False # <---- Default = "False" and setting to "True" will requires this Master Script to run ONCE with Admin rights to succeed.  This setting requires Win 10 1709 minimum or higher.
 $cleanDesktopDuplicates = $False # <---- Set to True if you want the Runtime script to clean up a user's duplicate Desktop Shortcuts before Work Folders data migration.
 $GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime Script to perform a refresh of Group Policies at the end of its setup/config/migration run.  Helps get GPOs in place if needed. Default is "True".
+
+#$TenantID = "00000000-0000-0000-0000-000000000000" # <--- Your Tenant ID, which is a GUID you can find at the link below and populate, or just let the Runtime Script attempt to 
+# auto-detect it based off of the $PrimaryTenantDomain variable above. Just set it manually if you already know your Office 365 Tenant ID.  This is not a required variable yet, but may be in the future.
+#
+# https://docs.microsoft.com/en-us/onedrive/find-your-office-365-tenant-id
+#
 
 $xmlDownloadURL = "https://g.live.com/1rewlive5skydrive/ODSUInsider"
 $minimumOfflineVersionRequired = 19
