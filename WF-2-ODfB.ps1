@@ -83,8 +83,8 @@
 #       enableDataMigration - True/False (Default True)
 #       redirectFoldersToOnedriveForBusiness - True/False (Default True)
 #
-#       This script will ONLY enable OneDrive's FilesOnDemand option by running it elevated with Admin 
-#       rights, the Config / Runtime Script ALWAYS runs under the rights of the PC endpoint user (non-Admin).
+#       This script will ONLY enable OneDrive's FilesOnDemand option if run with elevated rights, as  
+#       the Config / Runtime Script ALWAYS runs non-elevated for the PC endpoint user (non-Admin).
 #       If your deployment scenario is to non-Admin users, I recommend ignoring this setting.  If you need
 #       FilesOnDemand mode to be enabled, consider deploying this script onnce to run with Admin rights via MECM
 #       or other deployment tool.  While this script *can* be run without Admin rights, you lose the ability to set
