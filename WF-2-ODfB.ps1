@@ -1,3 +1,5 @@
+#Requires -Version 5.1
+#Requires -PSEdition Desktop
 <#
     Name: WF-2-ODfB.ps1
     Version: 0.4.1 (05 April 2022)
@@ -57,7 +59,7 @@
 #       before ever running it in a production environment. By using this code you agree to the terms of the LICENSE
 #       below, including waiving any liability for any and all effects caused by using this script. 
 #
-#		Script has no required Parameters but does have TWO REQUIRED variables you must edit below, for your 
+#		REQUIREMENTS: Script has no required Parameters but does have REQUIRED variables you must edit below, for your 
 #       O365 Tenant's OneDrive settings. These need to be set before running tests & deployment. Script
 #       will not work without these variables set. 
 #       PS VERSION NOTE: Script was developed in, and targeted for, PowerShell 5.1 and was not tested on earlier 
@@ -190,10 +192,10 @@ $PrimaryTenantDomain = "yourO365domain.com"
 # **required - this is your Primary Office 365 domain used in your User Principal Names / UPN.
 # The script will use this domain to obtain your TenantID and perform other OneDrive setup functions.
 #
-$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which will usually have its path under %USERPROFILE%.  Automatically-populated in non-GPO environments. 
-# **required - You can optionally set this manually, if you are going to utilize the "Specify work Folders Settings" GPO to disable Work Folders (this script will also attempt to do so).
-# If you do not set this variable, this script & the Runtime script both attempt to populate it by checking HKCU\Software\Policies\Microsoft\Windows\WorkFolders @ "LocalFolderPath" REG_SZ value, 
-# to populate this critial $WorkFoldersName variable. Just set it manually if you know the path to your Work Folders folder.
+#$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which you can set here, or allow the script to auto-populate from the Registry of the endpoint launching the Runtime script. 
+# **required - You can set this manually, and if you plan to "Specify work Folders Settings" GPO to disable Work Folders just remember this script will also attempt to do so.
+# If you do not set this variable, this script & the Runtime script both attempt "guess" the Work Folders path via HKCU\Software\Policies\Microsoft\Windows\WorkFolders @ "LocalFolderPath" REG_SZ value, 
+# to populate this critial $WorkFoldersName variable. Just set it manually if you know the path to your Work Folders folder. This path is usually found at the root of %USERPROFILE% on your endpoints.
 # When manually setting this, do not include any DRIVE / PATH info: just the FOLDER NAME.  
 # You absolutely should manually set this if you are using the following GPO setting during your migration:
 # User Configuration --> Admin Templates --> Windows Components --> Work Folders --> ENTRY "Specify Work Folders Settings" set to "Disabled" 
