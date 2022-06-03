@@ -13,7 +13,7 @@
     from Work Folders over to OneDrive for Business.  It is targeted to silently run 
     OneDrive Setup (see note below), moves data from Work Folders to OneDrive folder via
     Robocopy /Move, and sets redirection for Known Folders. 
-    Requirements: Windows 10, Powershell 5x or above
+    Requirements: Windows 10, Powershell 5.1 or above
 .LINK
     https://github.com/J-DubApps
     #>
