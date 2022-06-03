@@ -97,8 +97,8 @@
 #       The Config / Runtime script is launched using "-executionpolicy ByPass" PowerShell.exe 
 #       script parameters.  You can also sign the script (not in-scope of this documentation).  
 #
-#       This script can run via GPO, or be called by an existing PS Logon Script, but bear in mind it cannot run 
-#       elevated w/ Admin Rights this way.  
+#       This script can also be deployed via GPO Logon Script, or be called by an existing PS Logon Script, but bear in mind it 
+#       can not run Elevated this way.  
 #
 #       NOTE1: To leverage automatic sign-in for OneDrive, your Windows Endpoints must be configured 
 #           for Hybrid Azure AD join.  Otherwise your users must enter credentials into OneDrive the first time.
