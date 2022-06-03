@@ -24,20 +24,22 @@
 #			    WF-2-ODfB.ps1
 #
 #	Description 
-#		This script creates a Runtime script to configure OneDrive on a Windows 10 Endpoint, migrate
-#       a user's Work Folder sync config (and data) over to OneDrive for Business, and then redirect any 
-#       Known Folders that you set (below) for redirection. The Configuration / Runtime script can also
-#       MOVE data from the user's previous Work Folders Root over to their OneDrive folder via Robocopy.
+#		This script is designed to be run against an endpoint with or without Admin rights (it will run differently
+#       based on an "IsAdmin" check).   This script sets OneDrive HKLM settings, then creates a Runtime script to 
+#       Install OneDrive for each user on a Windows 10 Endpoint, and can also igrate each user's Work Folder sync 
+#       configuration (and data) over to OneDrive for Business, and lastly the Runtime script can redirect any 
+#       Known Folders that you require to be redirected (set below). The Configuration / Runtime script uses 
+#       Robocopy to MOVE data from the user's previous Work Folders Root over to their OneDrive folder via Robocopy.
 #       
-#       This Deployment (master) script, and the Runtime script it triggers, can be run non-elevated and
-#       without Admin rights; however, if you wish to have the Runtime script perform additional scheduled 
-#       runs you must run this Deployment script itself once with Admin rights (deployed via MECM etc).
+#       This Deployment (master) script, and the Runtime script it creates, are designed to be run non-elevated and
+#       without Admin rights; however, if you wish to have the Runtime script perform as a Scheduled Task on
+#       and endpoint, you must run this Deployment script itself once with Admin rights (deployed via MECM etc).
 #
 #       When run with non-Admin rights, the Config / Runtime script will set itself to be run as a 
 #       via the Windows "Run" registry key under HKCU.  Runtime script can still perform a OneDrive for 
-#       Business client install, Known Folder redirection, and Work Folder data migration; however: the 
-#       Runtime script runs best if this Deployment script is run at least once elevated or deployed by 
-#       a tool to run by SYSTEM (MECM, etc).
+#       Business client install, Known Folder redirection, and Work Folder data migration this way; however: the 
+#       Runtime script is more reliable if this Deployment script is run elevated or deployed and run once
+#       as SYSTEM (via MECM, etc).
 #
 #       The Config / Runtime script runs HIDDEN and silent (no PS window is seen by the user), 
 #       and can run multiple times via Scheduled Tasks (ideal for hybrid Remote Worker PCs, Endpoint PCs
@@ -61,13 +63,15 @@
 #
 #		REQUIREMENTS: Script has no required Parameters but does have REQUIRED variables you must edit below, for your 
 #       O365 Tenant's OneDrive settings. These need to be set before running tests & deployment. Script
-#       will not work without these variables set. 
+#       will not work without these variables set!
+#
 #       PS VERSION NOTE: Script was developed in, and targeted for, PowerShell 5.1 and was not tested on earlier 
 #       or later versions.  Only the "sweet spot" of Win10 default PS was tested.  It may work in PS 6+, but
 #       it is not guaranteed.
+#
 #       GPO NOTE:  
-#       If you configure Work Folders and OneDrive settings via GPOs in your environment, it is important that you
-#       set a THIRD REQUIRED variable, "$WorkFoldersName".  See notes below next to the variable.
+#       If you configured Work Folders and OneDrive settings via GPOs in your environment, it is important that you
+#       un-commment & set a REQUIRED variable below, "$WorkFoldersName".  See notes below next to the variable.
 #
 #       During its run, this Deploy script "paves the way" for the Config / Runtime Script.  So this script doesn't 
 #       perform any Data Migration or OneDrive lanuching, it leaves that to the separate Runtime script, which it
@@ -79,12 +83,13 @@
 #       enableDataMigration - True/False (Default True)
 #       redirectFoldersToOnedriveForBusiness - True/False (Default True)
 #
-#       This script can ONLY enable FilesOnDemand variable (if set to True) by running it elevated with Admin 
+#       This script will ONLY enable OneDrive's FilesOnDemand option by running it elevated with Admin 
 #       rights, the Config / Runtime Script ALWAYS runs under the rights of the PC endpoint user (non-Admin).
 #       If your deployment scenario is to non-Admin users, I recommend ignoring this setting.  If you need
 #       FilesOnDemand mode to be enabled, consider deploying this script onnce to run with Admin rights via MECM
-#       or other deployment tool. Alternatively, you could enable this feature by publishing the needed registry 
-#       setting via InTune or GPO (in which case you should leave enableFilesOnDemand set to 'false').
+#       or other deployment tool.  While this script *can* be run without Admin rights, you lose the ability to set
+#       FilesOnDemand this way.  Alternatively, you could enable this feature by publishing the needed registry 
+#       setting via InTune or GPO (in which case you should leave enableFilesOnDemand set to 'false' in this script).
 #       
 #       For all OneDrive environment config items under HKLM area of the Registry, they are performed here in this
 #       Deployment script only if it is run at least ONCE using Admin rights. 
