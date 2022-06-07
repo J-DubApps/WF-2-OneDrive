@@ -1482,7 +1482,7 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
         $(New-ScheduledTaskTrigger -At 9PM -Once),
         $(New-ScheduledTaskTrigger -At 10PM -Once),
         $(New-ScheduledTaskTrigger -At 11PM -Once),
-        $(New-ScheduledTaskTrigger -At $fiveminahead -Once)
+        $(New-ScheduledTaskTrigger -At $fiveminahead -Once) # run 5 mins after script complete (e.g. MECM triggers this script as SYSTEM, then Runtime script runs 5 mins later for any logged-on user)
     )
     $principal = New-ScheduledTaskPrincipal -GroupId S-1-5-32-545  # <--- S-1-5-32-545 is the builtin Users group
     $task = New-ScheduledTask -Action $action -Settings $settings  -Trigger $triggers -Principal $principal
