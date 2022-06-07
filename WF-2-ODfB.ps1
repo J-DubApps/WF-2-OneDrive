@@ -1462,7 +1462,7 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
     $action = New-ScheduledTaskAction -Execute $wscriptPath -Argument "`"$setPSRuntimeLauncherPath`" `"$setRuntimeScriptPath`""
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Compatibility Win8
 
-    $fiveminahead = "{0:hh}:{0:mm}" -f (Get-Date).addminutes(5)
+    $fiveminahead = "{0:hh}:{0:mm}" -f (Get-Date).addminutes(5) | Out-String
 
     $triggers = @(
         $(New-ScheduledTaskTrigger -AtLogon),
