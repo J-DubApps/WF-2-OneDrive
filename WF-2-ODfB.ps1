@@ -1915,7 +1915,7 @@ If(`$CheckKFMBlockOptInReg -eq `$true) {
         Write-Output `"KFMBlockOptIn is note set to 1, so we will do traditional KnownFolder Redirection`"
         `$SimpleRedirectMode=`$false
      }
-
+     
     }
 
      `$CheckDisablePersonalDirChangeReg = Test-RegistryKeyValue -Path `"HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer`" -Value `"DisablePersonalDirChange`"
