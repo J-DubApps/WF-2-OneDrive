@@ -197,7 +197,7 @@ $PrimaryTenantDomain = "yourO365domain.com"
 # **required - this is your Primary Office 365 domain used in your User Principal Names / UPN.
 # The script will use this domain to obtain your TenantID and perform other OneDrive setup functions.
 #
-#$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which you can set or let script auto-populate from the Registry of the Endpoint. 
+#$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which you can set or let script auto-populate from HKCU of the Endpoint user. 
 # **required - You can set this manually, and this is recommended.  Otherwise script attempts to determine Work Folders root folder from 
 # HKCU\Software\Policies\Microsoft\Windows\WorkFolders @ "LocalFolderPath" REG_SZ value -- to populate the $WorkFoldersName variable.   
 # The WF root folder is typically found at the root of %USERPROFILE% on your endpoints.  When manually setting the above variable do not include 
