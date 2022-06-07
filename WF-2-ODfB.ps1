@@ -1462,7 +1462,8 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
     $action = New-ScheduledTaskAction -Execute $wscriptPath -Argument "`"$setPSRuntimeLauncherPath`" `"$setRuntimeScriptPath`""
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Compatibility Win8
 
-    #$triggers = New-ScheduledTaskTrigger -AtLogon -Daily -At 10am
+    $fiveminahead = "{0:hh}:{0:mm}" -f (Get-Date).addminutes(5)
+
     $triggers = @(
         $(New-ScheduledTaskTrigger -AtLogon),
         $(New-ScheduledTaskTrigger -At 12AM -Once),
@@ -1480,7 +1481,8 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
         $(New-ScheduledTaskTrigger -At 8PM -Once),
         $(New-ScheduledTaskTrigger -At 9PM -Once),
         $(New-ScheduledTaskTrigger -At 10PM -Once),
-        $(New-ScheduledTaskTrigger -At 11PM -Once)
+        $(New-ScheduledTaskTrigger -At 11PM -Once),
+        $(New-ScheduledTaskTrigger -At $fiveminahead -Once)
     )
     $principal = New-ScheduledTaskPrincipal -GroupId S-1-5-32-545  # <--- S-1-5-32-545 is the builtin Users group
     $task = New-ScheduledTask -Action $action -Settings $settings  -Trigger $triggers -Principal $principal
@@ -1915,7 +1917,7 @@ If(`$CheckKFMBlockOptInReg -eq `$true) {
         Write-Output `"KFMBlockOptIn is note set to 1, so we will do traditional KnownFolder Redirection`"
         `$SimpleRedirectMode=`$false
      }
-     
+
     }
 
      `$CheckDisablePersonalDirChangeReg = Test-RegistryKeyValue -Path `"HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer`" -Value `"DisablePersonalDirChange`"
