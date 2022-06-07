@@ -197,15 +197,14 @@ $PrimaryTenantDomain = "yourO365domain.com"
 # **required - this is your Primary Office 365 domain used in your User Principal Names / UPN.
 # The script will use this domain to obtain your TenantID and perform other OneDrive setup functions.
 #
-#$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which you can set here, or have script auto-populate this name from the Registry of the Endpoint. 
-# **required - You can set this manually, and if you plan to "Specify work Folders Settings" GPO to disable Work Folders just remember this script will also attempt to do so.
-# If you do not set this variable, script attempts to"guess" the Work Folders root folder name from via HKCU\Software\Policies\Microsoft\Windows\WorkFolders @ "LocalFolderPath" REG_SZ value, 
-# to populate this critial $WorkFoldersName variable.   Because GPO has a variable "time-to-live" to disable Work Folders, I recommend un-commenting this and setting it manually 
-# to your Work Folders root folder name.  This path is usually found at the root of %USERPROFILE% on your endpoints.  When manually setting the above variable do not include 
-# any DRIVE / PATH info: just the FOLDER NAME.   
+#$WorkFoldersName = "Work Folders"  # <--- Your Work Folders root folder name, which you can set or let script auto-populate from the Registry of the Endpoint. 
+# **required - You can set this manually, and this is recommended.  Otherwise script attempts to determine Work Folders root folder from 
+# HKCU\Software\Policies\Microsoft\Windows\WorkFolders @ "LocalFolderPath" REG_SZ value -- to populate the $WorkFoldersName variable.   
+# The WF root folder is typically found at the root of %USERPROFILE% on your endpoints.  When manually setting the above variable do not include 
+# any DRIVE / PATH info, only the FOLDER NAME should be used.   
 # You absolutely should manually set this if you are using the following GPO setting during your migration, as it speeds along disabling Work Folders:
 # User Configuration --> Admin Templates --> Windows Components --> Work Folders --> ENTRY "Specify Work Folders Settings" set to "Disabled" 
-# This script will otherwise "Auto" set this variable in environments where the above GPO IS NOT being used.
+# This script will otherwise "Auto" set this variable in environments where GPO was not used to manage Work Folder settings.
 
 #
 ##
@@ -214,20 +213,23 @@ $PrimaryTenantDomain = "yourO365domain.com"
 ###############################################################################################
 
 ### OPTIONAL CONFIGURATION ###
-## *OPTIONAL* Variables - please review & configure for optimum operation! 
+## *OPTIONAL* Variables - please review & configure for optimum operation in your environment! 
 #
 
 $enableDataMigration = $True # <---- Set to "False" if you don't want to migrate any WF data: Work Folders are IGNORED even if they exist, only OneDrive Client setup & folder redirection is performed.
 $redirectFoldersToOnedriveForBusiness = $True # <--- Set to "False" if you do not wish to have Known Folders redirected.  Default is True & controlled by the "KNOWN FOLDERS ARRAY" section few lines down.
 #   NOTE: If the you get an "access denied error" during the Folder Redirection phase of the Runtime Script, your environment may have a GPO to "Prohibit User from manually redirecting Profile Folders" 
 #       in place.  If Known Folders cannot be redirected, the script will fallback to "Basic" redirection via Registry mods for only the 4 Default folders: Desktop, Documents, Favorites, and Pictures.
-$SkipScheduledTaskCreation = $False # <---- Set to "True" if you do NOT want this script to create a Scheduled Task during run.  DeployRunTimeScriptOnly variable below renders this setting to "True".
-$TriggerRuntimeScriptHere = $False # <---- Default = "False". Set to "True" if want this Deployment / Main Script to also launch the Runtime Script at the end (rare). DeployRunTimeScriptOnly variable below renders this setting to "False". 
+$attemptKFM = $False # <--- Leave $False unless you want this solution to attempt to Known Folder redirection, instead of basic direct Folder Redirection.  NOT recommended unless you are deploying to new Endpoints that have never
+#   had previous folder redirection configured (in GPO or otherwise).  Managed Endpoints using Work Folders shouldn't attempt KFM as the success-rate is variable and less reliable - which is why this script exists!
+$skipScheduledTaskCreation = $False # <---- Set to "True" if you do NOT want this script to create a Scheduled Task during run.  DeployRunTimeScriptOnly variable below renders this setting to "True".
+$triggerRuntimeScriptHere = $False # <---- Default = "False". Set to "True" if want this Deployment / Main Script to also launch the Runtime Script at the end (rare). DeployRunTimeScriptOnly variable below renders this setting to "False". 
 $DeployMode = $True # <---- Set to "True" to stage the Runtime Script & deploy the Scheduled Task -or- Registry Run entry to run it, and NOT run any migration-attempt for the account running *THIS* (Main) script.  
 #   NOTE: DeployMode setting is intended for scenarios like MECM Deployment to remote PC endpoints, or when you want migration to run for other users of a PC endpoint, etc. 
 $enableFilesOnDemand = $False # <---- Default = "False" and setting to "True" will requires this Main Script to run ONCE with Admin rights to enable this OneDrive feature.  This setting requires Win 10 1709 minimum or higher.
 $cleanDesktopDuplicates = $False # <---- Set to True if you want the Runtime script to clean up a user's duplicate Desktop Shortcuts before Work Folders data migration.
 $GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime Script to perform a refresh of Group Policies at the end of its setup/config/migration run.  Helps get GPOs in place if needed. Default is "True".
+#   NOTE: Because GPO has a variable "time-to-live" to disable Work Folders ~90 minutes, I recommend leaving GPO_Refresh enabled.
 
 #$TenantID = "00000000-0000-0000-0000-000000000000" # <--- Your Tenant ID, which is a GUID you can find at the link below and populate, or just let the Runtime Script attempt to 
 # auto-detect it based off of the $PrimaryTenantDomain variable above. Just set it manually if you already know your Office 365 Tenant ID.  This is not a required variable yet, but may be in the future.
@@ -237,12 +239,12 @@ $GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime S
 
 $xmlDownloadURL = "https://g.live.com/1rewlive5skydrive/ODSUInsider"
 $minimumOfflineVersionRequired = 19
-$logFileX64 = Join-Path $Env:TEMP -ChildPath "OnedriveAutoConfigx64.log"
-$logFileX86 = Join-Path $Env:TEMP -ChildPath "OnedriveAutoConfigx86.log"
+$logFileX64 = Join-Path $Env:TEMP -ChildPath "OnedriveAutoConfigx64.log"    #Tracelog file for x64
+$logFileX86 = Join-Path $Env:TEMP -ChildPath "OnedriveAutoConfigx86.log"    #Tracelog file for x86
 
-$LogFileName = "ODfB_MigChecks-$env:username.log"
-# This is the Log File name where activites will be logged, by default it includes the current Username 
-# in the file name.  It is saved during Runtime to current %userprofile%\$LogFileName
+$LogFileName = "ODfB_MigChecks-$env:username.log"   # <-- General Log file name (less detail than TraceLog, audience is IT or end user)
+# This is the Log File name where activites will be logged, saved to current %userprofile%\$LogFileName.
+# In addition to the above logs, a Robocopy log is generated @ %userprofile%Start-Robocopy-timestamp.log for any data migrated.
 #
 
 $MigrationFlagFileName = "FirstOneDriveComplete.flg"
@@ -250,17 +252,18 @@ $MigrationFlagFileName = "FirstOneDriveComplete.flg"
 # It is saved during Runtime to: %userprofile%\$OneDriveFolderName\$MigrationFlagFileName
 #
 
-# $DeployRunTimeScriptOnly = $true  ## Un-comment this for Debug/Testing ONLY - Leave alone & remakred out for expected behavior!  You can un-remark this line -or- use the Parameter Switch "-DeployRunTimeScriptOnly" to make 
-# the script ONLY generate WF-2-ODfB-Mig.ps1 file & do NOTHING else.  Script will not set OD Registry entires, nor will it disable Work Folder sync or create a Scheduled Task or Registry Run entry. 
-# The above variable is to allow you to Runtime Script without the Deployment Script doing anything else.  
+# $DeployRunTimeScriptOnly = $true  # Outputs the Runtime/migration script ONLY, and does nothing else.  
+# Un-comment the above when Debugging/Testing Runtime script, or run the script manually with Parameter Switch "-DeployRunTimeScriptOnly"  
+# Script does nothing execept ONLY writing the WF-2-ODfB-Mig.ps1 Runtime script then exits.  Script will not set OD Registry entires, nor will it 
+# disable Work Folder sync or create a Scheduled Task or Registry Run entry.  This option allows you to create the Runtime Script, without Deployment Script doing anything else.  
 # Intended for Sandbox testing on multiple PCs or environments prior to prod deployment.
-# Script will plaace the Runtime Script in the same directory as this script via $PSScriptRoot.   
+# Script will place the Runtime Script in the same directory it is run from ( $PSScriptRoot ).   
 
 If($DeployRunTimeScriptOnly -eq $true){
     $DeployMode = $false
     $enableFilesOnDemand = $false
-    $SkipScheduledTaskCreation = $true
-    $TriggerRuntimeScriptHere = $False 
+    $skipScheduledTaskCreation = $true
+    $triggerRuntimeScriptHere = $False 
 }
 
 # Set Variables for Location for the Config / Runtime script-placement and script-names
@@ -1142,8 +1145,8 @@ If(($RunningAsSYSTEMCheck -eq $env:UserName) -and ($DeployRuntimeScriptOnly -ne 
     Write-Output "Running as SYSTEM, may be running non-Interacrtively via a Deployment tool (MECM etc)"
 }
 
-If($DeployMode -eq $True){$TriggerRuntimeScriptHere = $False}
-If($RunningAsSYSTEM -eq $True){$TriggerRuntimeScriptHere = $False}
+If($DeployMode -eq $True){$triggerRuntimeScriptHere = $False}
+If($RunningAsSYSTEM -eq $True){$triggerRuntimeScriptHere = $False}
 
 #Set the Logfile Location based on this script's mode
 
@@ -1441,7 +1444,7 @@ If(($DeployMode -eq $false) -and ($SchedTasksRights -eq $false)){
 # Create a scheduled task to Trigger the Runtime Script
 #######################################################
 
-If(($SchedTasksRights -eq $true) -and ($SkipScheduledTaskCreation -eq $false)){
+If(($SchedTasksRights -eq $true) -and ($skipScheduledTaskCreation -eq $false)){
 
 # This Scheduled Task section creates the Scheduled Task for "All users" by default, in case the target user getting 
 # migrated is NOT the same user who runs this Main Script (e.g. MECM deployment of this script, or otherwise running it as an Admin user).
@@ -1590,11 +1593,11 @@ $RuntimeScriptContent = "
 .SYNOPSIS
     Migrate any active Work Folders to OneDrive for Business
 .DESCRIPTION
-    This script is created by WF-2-ODfB.ps1 (Maain Script) and is placed into a user's Scheduled Tasks to ensure that
-    a silent migration of a Windows 10 Endpoint's User data sync settings from Work Folders 
-    over to OneDrive for Business can occur automatically.  
-    It is targeted to silently run OneDrive Setup and auto sign-in (if Hybrid joined to Azure AD), 
-    sets redirection for Known Folders, and moves data from Work Folders to OneDrive folder via Robocopy /Move.
+    This script is created by WF-2-ODfB.ps1 (Main Script) and is placed either into Scheduled Tasks or HKCU Run
+    to ensure a silent migration of a Windows 10 Endpoint's User data sync settings from Work Folders 
+    over to OneDrive for Business.  
+    It is targeted to run OneDrive Setup and auto sign-in (if endpoint is Hybrid joined to Azure AD), 
+    redirect Known Folders, and move data from Work Folders to OneDrive folder via Robocopy /Move.
     Requirements: Windows 10, Powershell 5x or above.
 .LINK
     https://github.com/J-DubApps
@@ -1612,7 +1615,7 @@ $RuntimeScriptContent = "
 `$PrimaryTenantSubDomain = `"$PrimaryTenantSubDomain`"
 `TenantID = `"$TenantID`"
 `$enableDataMigration = `$$enableDataMigration
-`$LogFileName = `"ODfB_Config_Run_`$env:username.log`"
+`$LogFileName = `"ODfB_Config_Run_`$env:username.log`" # <-- Log file name for IT or end-user to review what this script did
 `$MigrationFlagFileName = `"$MigrationFlagFileName`" 
 `$LogFilePath = `"`$env:userprofile\`$LogFileName`"
 `$OneDriveUserPath = `"`$env:userprofile\`$OneDriveFolderName`"
@@ -1674,6 +1677,7 @@ If((`$ODFlagFileExist -eq `$true)  -and (`$WorkFoldersExist -eq `$true)){`$WF_an
 
 
 `$redirectFoldersToOnedriveForBusiness = `$$redirectFoldersToOnedriveForBusiness
+`$attemptKFM = `$$attemptKFM
 `$listOfFoldersToRedirectToOnedriveForBusiness = @("
 $listOfFoldersToRedirectToOnedriveForBusiness | % {
         $RuntimeScriptContent += "@{`"knownFolderInternalName`"=`"$($_.knownFolderInternalName)`";`"knownFolderInternalIdentifier`"=`"$($_.knownFolderInternalIdentifier)`";`"desiredSubFolderNameInOnedrive`"=`"$($_.desiredSubFolderNameInOnedrive)`"},"
@@ -1892,6 +1896,8 @@ if(Get-ScheduledTask -TaskName `"OnedriveAutoConfig`" -TaskPath \  -ErrorAction 
 #If certain Registry Values exist, we cannot do traditional KnownFolder Redirection using System.Management.Automation / shell32.dll method
 #So we would pivot to a Simpler direct method of Folder Redirection using the Registry (SimpleRedirectMode)
 
+
+If(`$attemptKFM -eq `$true){
 `$SimpleRedirectMode = `$null
 
 `$CheckKFMBlockOptInReg = Test-RegistryKeyValue -Path `"HKLM:\SOFTWARE\Policies\Microsoft\OneDrive`" -Value `"KFMBlockOptIn`"
@@ -1930,6 +1936,12 @@ If(`$CheckDisablePersonalDirChangeReg -eq `$true) {
      }
 
    }
+
+}else { # else for `$attemptKFM check
+    
+    `$SimpleRedirectMode=`$true     # if we are not attempting KFM, per bool variable setting, just do Simple Redirect Mode
+
+} # end of `$attemptKFM check
 
 WriteLog `"Simple Redirect Mode: `$SimpleRedirectMode `"
 Write-Output `"Simple Redirect Mode: `$SimpleRedirectMode `"
@@ -2237,8 +2249,8 @@ If (`$WF_and_Flagfile_Exist = `$false) {
 
 
 If(!`$redirectFoldersToOnedriveForBusiness){
-    WriteLog `"Redirection was not set to be enabled, therefore Script-Run is Complete.`"
-    Write-Output `"Redirection was not set to be enabled, therefore Script-Run is Complete.`"
+    WriteLog `"Redirection was not enabled, therefore Script-Run is Complete.`"
+    Write-Output `"Redirection was enabled, therefore Script-Run is Complete.`"
     Stop-Transcript
     Exit
 }
@@ -2429,6 +2441,8 @@ if((`$redirectFoldersToOnedriveForBusiness -eq `$true) -and (`$enableDataMigrati
 
 If((!`$null -eq `$detectedFolderPath) -and (`$redirectFoldersToOnedriveForBusiness -eq `$true)){
 
+    If(`$attemptKFM -eq `$false){`$SimpleRedirectMode = `$true}
+
     If(`$SimpleRedirectMode -eq `$false){
         #Traditional Known Folder Redirect Mode Will be used --
         WriteLog `"Traditional Known Folder Redirect Mode Will be used via SHSetKnownFolderPath function`" 
@@ -2451,9 +2465,11 @@ If((!`$null -eq `$detectedFolderPath) -and (`$redirectFoldersToOnedriveForBusine
     }
 }
 
+} # end of `$attemptKFM check
+
 If(`$SimpleRedirectMode -eq `$true){
 
-    #Simple Redirect Mode will be used, with direct written Registry writes instead of using Windows Known Folder system automation & SHSetKnownFolderPath function
+    #Simple Redirect Mode writes direct Registry settings to redirect Known Folders to Onedrive for Business
     WriteLog `"Simple Folder Redirect mode will be used via direct Registry writes instead of SHSetKnownFolderPath function`" 
     Write-Output `"Simple Folder Redirect mode will be used via direct Registry writes instead of SHSetKnownFolderPath function`"
 
@@ -2650,7 +2666,7 @@ Stop-Transcript
    
    WriteLog "A Config & Migration script will be established in Scheduled Tasks or the HCKU "Run" section of the registry (depending on operational settings of this script)."
 
-   IF($TriggerRuntimeScriptHere -eq $True){
+   IF($triggerRuntimeScriptHere -eq $True){
    
    
     $SchedTaskExists = $null
