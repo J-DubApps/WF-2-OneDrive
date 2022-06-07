@@ -229,7 +229,7 @@ $DeployMode = $True # <---- Set to "True" to stage the Runtime Script & deploy t
 $enableFilesOnDemand = $False # <---- Default = "False" and setting to "True" will requires this Main Script to run ONCE with Admin rights to enable this OneDrive feature.  This setting requires Win 10 1709 minimum or higher.
 $cleanDesktopDuplicates = $False # <---- Set to True if you want the Runtime script to clean up a user's duplicate Desktop Shortcuts before Work Folders data migration.
 $GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime Script to perform a refresh of Group Policies at the end of its setup/config/migration run.  Helps get GPOs in place if needed. Default is "True".
-#   NOTE: Because GPO has a variable "time-to-live" to disable Work Folders ~90 minutes, I recommend leaving GPO_Refresh enabled.
+#   NOTE: Because GPO has a variable "time-to-live" to disable Work Folders ~90 minutes, I recommend leaving GPO_Refresh enabled if you're  also using GPO to disable or remove Work Folders settings.
 
 #$TenantID = "00000000-0000-0000-0000-000000000000" # <--- Your Tenant ID, which is a GUID you can find at the link below and populate, or just let the Runtime Script attempt to 
 # auto-detect it based off of the $PrimaryTenantDomain variable above. Just set it manually if you already know your Office 365 Tenant ID.  This is not a required variable yet, but may be in the future.
