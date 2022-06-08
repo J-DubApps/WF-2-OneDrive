@@ -2175,78 +2175,13 @@ WriteLog `"Checking existence of client folder`"
 }
 
 
-#DATA MIGRATION SECTION
-
-#Clean Up any old Robocopy Log Files older than 1 days (a lot of these get created during the scheduled-runs, even if no copies are performed).  Adjust to keep these longer if you want.
-
-Get-ChildItem -Path `"`$env:userprofile\Start-Robocopy-*`" | Where-Object {(`$_.LastWriteTime -lt (Get-Date).AddDays(-1))} | Remove-Item -Force -ErrorAction Ignore | Out-Null
-
-# Perform First Migration if MIGRATION FLAG FILE <> Exist + Work Folders Path Exists
-
-If((`$ODFlagFileExist -eq `$false) -and (`$WorkFoldersExist -eq `$true)){
-    
-    If(`$enableDataMigration -eq `$true){
-        
-    #OneDrive Flag File does not exist and WF Folder exists, perform First Migration pass
-    WriteLog `"OneDrive Flag File does not exist and WF Folder exists, perform First Migration pass`"
-    Write-Host `"OneDrive Flag File does not exist and WF Folder exists, perform first Migration pass`"
-
-        robocopy `"`"`$(`$WorkFoldersPath)`"`" `"`"`$(`$OneDriveUserPath)`"`" /E /MOVE /LOG+:`$env:userprofile\Start-Robocopy-`$(Get-Date -Format 'yyyyMMddhhmmss').log
-    }
-
-    #Create our Flag File for initial One Drive data Migration
-    New-Item -Path `$FirstOneDriveComplete -type file -force
-
-}else{
-
-    #Leaving this Else stmt here, in case there is anything else we want to do when the OneDrive Migration Flag File exists
-}
-
-If (`$WF_and_Flagfile_Exist = `$false) {
-
-    #Work Folders or Flag File do not exist together at the same time, nothing to migrate or sync to OneDrive
-    WriteLog `"Work Folders or Flag File do not exist together at the same time, nothing to migrate or sync to OneDrive`"
-
-} Else {
-
-    #Work Folders and Flag File exist at the same time, so Work Folders content may still exist to migrate.
-    # Prepare to move any present files in Work Folders root, and remove Work Folders root
-
-    WriteLog `"Work Folders and Flag File exist at the same time, prepare to move any present files in WF folder & remove WF`"
-    Write-Output `"Work Folders and Flag File exists at the same time, performing one-way Sync to OD4B from WF using Robocopy with /X CNO options`"
-    #Perform WF File Clean-up Migration
-
-    If(`$enableDataMigration -eq `$true){
-   
-
-        robocopy `"`"`$(`$WorkFoldersPath)`"`" `"`"`$(`$OneDriveUserPath)`"`" /E /MOVE /XC /XN /XO /LOG+:`$env:userprofile\Start-Robocopy-`$(Get-Date -Format 'yyyyMMddhhmmss').log
-
-         # Robocopy /MOVE should delete Work Folders root folder entirely.
-         # If the above fails to remove Work Folders root, or Work Folders root comes back, consider: 
-         #
-         # GPO or other mechanism that is bringing Work Folders Root back (needs to be un-published to your migrated-users)
-         # -or-
-         # File(s) or folder(s) was(were) present under Work Folders with Read-Only attribute set.  This can keep Robocopy /MOVE from deleting the Work Folders root. 
-
-         # Check if Work Folders root is empty + delete, if empty
-         Try{
-            
-            If((Get-ChildItem `$WorkFoldersPath -ErrorAction Stop | Measure-Object).Count -eq 0){ Remove-Item -Path `$WorkFoldersPath -Force -ErrorAction Stop | Out-Null}
-        }Catch {
-          
-        }
-
-    }
-
-}
-
 #############
 # Custom Code Section -- 
-#     here is where you may add custom Data Migration / cleanup code to be executed (e.g. deleting problem-files under Work Folders, etc)
+#     here is where you may add custom Data Migration / cleanup code for your environment's needs (e.g. deleting problem-files under Work Folders, etc)
 #
 # Example:
 #   Remove-Item `"`$WorkFoldersPath\Pictures\Wallpaper-Backup\DesktopWallpaper.jpg`" -Force -ErrorAction Ignore | Out-Null
-
+#
 ############
 
 
@@ -2619,6 +2554,73 @@ If(`$SimpleRedirectMode -eq `$true){
             }
             
         }
+
+        #DATA MIGRATION SECTION
+
+        #Clean Up any old Robocopy Log Files older than 1 days (a lot of these get created during the scheduled-runs, even if no copies are performed).  Adjust to keep these longer if you want.
+        
+        Get-ChildItem -Path `"`$env:userprofile\Start-Robocopy-*`" | Where-Object {(`$_.LastWriteTime -lt (Get-Date).AddDays(-1))} | Remove-Item -Force -ErrorAction Ignore | Out-Null
+        
+        # Perform First Migration if MIGRATION FLAG FILE <> Exist + Work Folders Path Exists
+        
+        If((`$ODFlagFileExist -eq `$false) -and (`$WorkFoldersExist -eq `$true)){
+            
+            If(`$enableDataMigration -eq `$true){
+                
+            #OneDrive Flag File does not exist and WF Folder exists, perform First Migration pass
+            WriteLog `"OneDrive Flag File does not exist and WF Folder exists, perform First Migration pass`"
+            Write-Host `"OneDrive Flag File does not exist and WF Folder exists, perform first Migration pass`"
+        
+                robocopy `"`"`$(`$WorkFoldersPath)`"`" `"`"`$(`$OneDriveUserPath)`"`" /E /MOVE /LOG+:`$env:userprofile\Start-Robocopy-`$(Get-Date -Format 'yyyyMMddhhmmss').log
+            }
+        
+            #Create our Flag File for initial One Drive data Migration
+            New-Item -Path `$FirstOneDriveComplete -type file -force
+        
+        }else{
+        
+            #Leaving this Else stmt here, in case there is anything else we want to do when the OneDrive Migration Flag File exists
+        }
+        
+        If (`$WF_and_Flagfile_Exist = `$false) {
+        
+            #Work Folders or Flag File do not exist together at the same time, nothing to migrate or sync to OneDrive
+            WriteLog `"Work Folders or Flag File do not exist together at the same time, nothing to migrate or sync to OneDrive`"
+        
+        } Else {
+        
+            #Work Folders and Flag File exist at the same time, so Work Folders content may still exist to migrate.
+            # Prepare to move any present files in Work Folders root, and remove Work Folders root
+        
+            WriteLog `"Work Folders and Flag File exist at the same time, prepare to move any present files in WF folder & remove WF`"
+            Write-Output `"Work Folders and Flag File exists at the same time, performing one-way Sync to OD4B from WF using Robocopy with /X CNO options`"
+            #Perform WF File Clean-up Migration
+        
+            If(`$enableDataMigration -eq `$true){
+           
+        
+                robocopy `"`"`$(`$WorkFoldersPath)`"`" `"`"`$(`$OneDriveUserPath)`"`" /E /MOVE /XC /XN /XO /LOG+:`$env:userprofile\Start-Robocopy-`$(Get-Date -Format 'yyyyMMddhhmmss').log
+        
+                 # Robocopy /MOVE should delete Work Folders root folder entirely.
+                 # If the above fails to remove Work Folders root, or Work Folders root comes back, consider: 
+                 #
+                 # GPO or other mechanism that is bringing Work Folders Root back (needs to be un-published to your migrated-users)
+                 # -or-
+                 # File(s) or folder(s) was(were) present under Work Folders with Read-Only attribute set.  This can keep Robocopy /MOVE from deleting the Work Folders root. 
+        
+                 # Check if Work Folders root is empty + delete, if empty
+                 Try{
+                    
+                    If((Get-ChildItem `$WorkFoldersPath -ErrorAction Stop | Measure-Object).Count -eq 0){ Remove-Item -Path `$WorkFoldersPath -Force -ErrorAction Stop | Out-Null}
+        
+                }Catch {
+                  
+                }
+        
+            }
+        
+        }  # End of `$WF_and_Flagfile_Exist check routine
+
 
         # Perform GPO Refresh if needed
         If(`$GPO_Refresh = `$true){
