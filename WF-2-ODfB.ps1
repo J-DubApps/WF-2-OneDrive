@@ -2650,16 +2650,24 @@ Exit (0)
 
 $RuntimeScriptContent | Out-File $setRuntimeScriptPath -Force
 
-#Whichever account first created this file, ensure other users can change it
+#Whichever account first created this file, ensure other users can delete it
 
 try {
   
     icacls $setRuntimeScriptPath /grant:r BUILTIN\Users:F | Out-Null
-}
-catch {
+} catch {
     {1:<#terminating exception#>}
 }
 
+# Whichever account first created the Runtime Script folder under C:\ProgramData (default), ensure other users can delete it
+
+try {
+
+icacls $setRuntimeScriptFolder /grant:r BUILTIN\Users:F | Out-Null
+
+} Catch {
+    {1:<#terminating exception#>}
+}
 
 #######################################################
 #
