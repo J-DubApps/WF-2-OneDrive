@@ -381,8 +381,6 @@ function Test-RegistryKeyValue {
     
     }
     
-
-
 ##########################################################################
 ##	Function to Create a new Scheduled Task definition
 ##########################################################################
@@ -917,7 +915,9 @@ function Add-TaskAction
     }
 }
 
-
+##########################################################################
+##	Function to Check Permission on file/folder/registry key
+##########################################################################
 
 function Test-Permission
 {
@@ -1131,7 +1131,6 @@ function Test-Permission
 ###
 ###  SCRIPT OPERATIONS BEGIN
 
-
 #Add User Profile path to customized variables (if not running in Deployment mode)
 
 $OneDriveUserPath = "$env:userprofile\$OneDriveFolderName"
@@ -1277,7 +1276,7 @@ If(($RunningAsSYSTEM) -and ($DeployMode)){Write-Output "Running as SYSTEM in Dep
 #Set system.io variable for operations on Migration Flag file
 [System.IO.DirectoryInfo]$FirstOneDriveCompletePath = $FirstOneDriveComplete
 
-if(![System.IO.File]::Exists($FirstOneDriveComplete)){$ODFlagFileExist = $false}else{$ODFlagFileExist  = $true}
+if(![System.IO.File]::Exists($FirstOneDriveComplete)){$ODFlagFileExist = $false}else{$ODFlagFileExist = $true}
 
 Write-output "Migration Flag File Exists true or false: $ODFlagFileExist"
 
@@ -1618,7 +1617,8 @@ $RuntimeScriptContent = "
 `TenantID = `"$TenantID`"
 `$enableDataMigration = `$$enableDataMigration
 `$LogFileName = `"ODfB_Config_Run_`$env:username.log`" # <-- Log file name for IT or end-user to review what this script did
-`$MigrationFlagFileName = `"$MigrationFlagFileName`" 
+`$MigrationFlagFileName = `"$MigrationFlagFileName`"
+`$setRuntimeScriptPath = `"$setRuntimeScriptPath`" 
 `$LogFilePath = `"`$env:userprofile\`$LogFileName`"
 `$OneDriveUserPath = `"`$env:userprofile\`$OneDriveFolderName`"
 `$WorkFoldersPath = `"`$env:userprofile\`$WorkFoldersName`"
@@ -1848,6 +1848,8 @@ function Test-RegistryKeyValue {
 ###  SCRIPT OPERATIONS BEGIN
 
 WriteLog `"Script Operations Starting...`"
+
+# Set Variables for Location for the Config / Runtime script-placement and script-names
 
 If(`$WorkFoldersExist){
     Write-Output `"Work Folders Path checked and physically exists`"
@@ -2582,7 +2584,7 @@ If(`$SimpleRedirectMode -eq `$true){
             #Leaving this Else stmt here, in case there is anything else we want to do when the OneDrive Migration Flag File exists
         }
         
-        If (`$WF_and_Flagfile_Exist = `$false) {
+        If (`$WF_and_Flagfile_Exist -eq `$false) {
         
             #Work Folders or Flag File do not exist together at the same time, nothing to migrate or sync to OneDrive
             WriteLog `"Work Folders or Flag File do not exist together at the same time, nothing to migrate or sync to OneDrive`"
@@ -2621,6 +2623,13 @@ If(`$SimpleRedirectMode -eq `$true){
         
         }  # End of `$WF_and_Flagfile_Exist check routine
 
+    ## Cleanup Section (for conditions where Work Folders Root is not present & OneDrive Migration Flag File exists)
+
+    If((`$WF_and_Flagfile_Exist -eq `$false) -and (`$ODFlagFileExist -eq `$true)){`$scriptCleanup = `$true}else{`$scriptCleanup = `$false}
+
+If(`$scriptCleanup -eq `$true){
+
+}  # end of `$scriptCleanup check
 
         # Perform GPO Refresh if needed
         If(`$GPO_Refresh = `$true){
