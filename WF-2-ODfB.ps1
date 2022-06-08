@@ -2288,8 +2288,6 @@ If((`$ODFlagFileExist -eq `$true) -and (`$WorkFoldersExist -eq `$false)){
 
 }
 
-
-
 ### FOLDER REDIRECTION FUNCTIONS
 Function Set-KnownFolderPath {
     Param (
