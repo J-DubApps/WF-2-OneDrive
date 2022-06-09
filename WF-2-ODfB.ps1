@@ -2663,7 +2663,8 @@ try {
 
 try {
 
-icacls $setRuntimeScriptFolder /grant:r BUILTIN\Users:F | Out-Null
+icacls $setRuntimeScriptFolder /inheritance:d
+icacls $setRuntimeScriptFolder\* /grant:r BUILTIN\Users:F | Out-Null
 
 } Catch {
     {1:<#terminating exception#>}
