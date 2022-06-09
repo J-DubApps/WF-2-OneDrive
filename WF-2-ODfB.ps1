@@ -1273,23 +1273,51 @@ If(($RunningAsSYSTEM) -and ($DeployMode)){Write-Output "Running as SYSTEM in Dep
         $SchedTasksRights = $true
     }
 
-#Set system.io variable for operations on Migration Flag file
-[System.IO.DirectoryInfo]$FirstOneDriveCompletePath = $FirstOneDriveComplete
-
-if(![System.IO.File]::Exists($FirstOneDriveComplete)){$ODFlagFileExist = $false}else{$ODFlagFileExist = $true}
-
-Write-output "Migration Flag File Exists true or false: $ODFlagFileExist"
 
 #Set system.io Variable to see if there is a centralized/single Runtime of OneDrive vs the default Windows Bundled version
 $OneDriveProgFiles = "C:\Program Files\Microsoft OneDrive"
 [System.IO.DirectoryInfo]$OneDriveProgFilesPath = $OneDriveProgFiles
 
 
-#Set system.io Variable to check if Work Folders Path exists
+If($triggerRuntimeScriptHere -eq $true){
 
-[System.IO.DirectoryInfo] $WorkFoldersPathCheck = $WorkFoldersPath
+    #Set system.io variable for operations on Migration Flag file
+    [System.IO.DirectoryInfo]$FirstOneDriveCompletePath = $FirstOneDriveComplete
 
-If($WorkFoldersPathCheck){Write-Output "Work Folders Path checked and physically exists"}
+    if(![System.IO.File]::Exists($FirstOneDriveComplete)){$ODFlagFileExist = $false}else{$ODFlagFileExist = $true}
+
+    Write-output "Migration Flag File Exists true or false: $ODFlagFileExist"
+
+    #Set system.io Variable to check if Work Folders Path exists
+
+    [System.IO.DirectoryInfo] $WorkFoldersPathCheck = $WorkFoldersPath
+
+    If($WorkFoldersPathCheck){Write-Output "Work Folders Path checked and physically exists"}
+
+    #Set variable if we encounter both OneDrive Flag File and Work Folders paths at the same time
+    $WF_and_Flagfile_Exist = $null
+    If(($ODFlagFileExist -eq $true)  -and ($WorkFoldersExist -eq $true)){$WF_and_Flagfile_Exist = $true}else{$WF_and_Flagfile_Exist = $false}
+
+    If(($WF_and_Flagfile_Exist -eq $false) -and ($ODFlagFileExist -eq $true)){$scriptCleanup = $true}else{$scriptCleanup = $false}
+
+        If($scriptCleanup -eq $true){
+
+        $SchedTaskExists = $null
+        $SchedTaskName = "OnedriveAutoConfig"
+        $SchedTaskExists = Get-ScheduledTask | Where-Object {$_.TaskName -like $SchedTaskName }
+        Write-Output "Scheduled Task Exists: $SchedTaskExists"
+
+        If($SchedTaskExists){Unregister-ScheduledTask -TaskName $SchedTaskName -Confirm:$false -ErrorAction SilentlyContinue}
+
+        Get-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" | Remove-ItemProperty -Name OnedriveAutoConfig -Force -ErrorAction SilentlyContinue
+
+        Remove-Item $setRuntimeScriptFolder -Force  -Recurse -ErrorAction SilentlyContinue
+
+	    Exit (0)
+
+    }  # end of $scriptCleanup check
+
+} # end of $triggerRuntimeScriptHere check
 
 If($DeployRunTimeScriptOnly -ne $true){
     #beginning of $DeployRuntimeScriptOnly IF check
@@ -1574,7 +1602,7 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
 
     } 
     
-} #end of $DeployRuntimeScriptOnly IF check
+} #end of $DeployRuntimeScriptOnly check
 
 #######################################################
 #
@@ -2629,9 +2657,22 @@ If(`$SimpleRedirectMode -eq `$true){
 
 If(`$scriptCleanup -eq `$true){
 
+    `$SchedTaskExists = `$null
+    `$SchedTaskName = `"OnedriveAutoConfig`"
+    `$SchedTaskExists = Get-ScheduledTask | Where-Object {`$_.TaskName -like `$SchedTaskName }
+    Write-Output `"Scheduled Task Exists: `$SchedTaskExists`"
+
+    If(`$SchedTaskExists){Unregister-ScheduledTask -TaskName `$SchedTaskName -Confirm:`$false -ErrorAction SilentlyContinue}
+
+    Get-Item -Path `"HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`" | Remove-ItemProperty -Name OnedriveAutoConfig -Force -ErrorAction SilentlyContinue
+
+    Remove-Item `$setRuntimeScriptFolder -Force  -Recurse -ErrorAction SilentlyContinue
+
+    Exit (0)
+
 }  # end of `$scriptCleanup check
 
-        # Perform GPO Refresh if needed
+        # Perform GPO Refresh after Operations
         If(`$GPO_Refresh = `$true){
             WriteLog `"Refreshing GPO`"
             Write-Output `"Refreshing GPO`"
