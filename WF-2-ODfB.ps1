@@ -1319,8 +1319,7 @@ If($triggerRuntimeScriptHere -eq $true){
 
 } # end of $triggerRuntimeScriptHere check
 
-If($DeployRunTimeScriptOnly -ne $true){
-    #beginning of $DeployRuntimeScriptOnly IF check
+
 
 #CREATE RUNTIME WRAPPER TO LAUNCH THE MIGRATION RUNTIME SCRIPT (SO USER DOESN'T GET A PS WINDOW)
 WriteLog "Creating Silent VBS Launcher for Runtime Script (so User doesn't get a PS window)."
@@ -1342,7 +1341,6 @@ Else
     WScript.Quit
 End If
 "
-}
 
 if(![System.IO.Directory]::($setRuntimeScriptFolder)){
     New-Item -Path $setRuntimeScriptFolder -Type Directory -Force
@@ -1359,6 +1357,9 @@ try {
 catch {
     {1:<#terminating exception#>}
 }
+
+If($DeployRunTimeScriptOnly -ne $true){
+    #beginning of $DeployRuntimeScriptOnly IF check
 
 #ENSURE ONEDRIVE CONFIG REGISTRY KEYS ARE CREATED
 try{
@@ -1466,6 +1467,7 @@ If(($DeployMode -eq $false) -and ($SchedTasksRights -eq $false)){
         WriteLog "ODFileExist variable is True and WorkFoldersPath is "Null" and couldn't be set, therefore not adding logon registry key"
     }
 }
+}    #end of $DeployRuntimeScriptOnly check
 
 #######################################################
 # Create a scheduled task to Trigger the Runtime Script
@@ -1602,7 +1604,7 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
 
     } 
     
-} #end of $DeployRuntimeScriptOnly check
+} #end of $skipScheduledTaskCreation & Schedrights check
 
 #######################################################
 #
@@ -1642,7 +1644,7 @@ $RuntimeScriptContent = "
 `$WorkFoldersName = `"$WorkFoldersName`"
 `$PrimaryTenantDomain = `"$PrimaryTenantDomain`"
 `$PrimaryTenantSubDomain = `"$PrimaryTenantSubDomain`"
-`TenantID = `"$TenantID`"
+`$TenantID = `"$TenantID`"
 `$enableDataMigration = `$$enableDataMigration
 `$LogFileName = `"ODfB_Config_Run_`$env:username.log`" # <-- Log file name for IT or end-user to review what this script did
 `$MigrationFlagFileName = `"$MigrationFlagFileName`"
@@ -2240,10 +2242,10 @@ If((`$ODFlagFileExist -eq `$true) -and (`$WorkFoldersExist -eq `$false)){
             
             If((`$LocalDesktopRegData = `"`$RedirectDesktopRegVal`") -and ( `$DesktopRegData = `"`$RedirectDesktopRegVal`")){
 
-                WriteLog `"Work Folders do not exist, Migration Flagfile Exists, and Redirection of the Desktop shell folder was done.   Assuming all tasks complete and ending the Runtime Script.`"	
-                Write-Output `"Work Folders do not exist, Migration Flagfile Exists, and Redirection of the Desktop shell folder was done.   Assuming all tasks complete and ending the Runtime Script.`"
-                Stop-Transcript
-                Exit
+                WriteLog `"Work Folders do not exist, Migration Flagfile Exists, and Redirection of the Desktop shell folder was done.   Assuming all tasks complete and will perform cleanup.`"	
+                Write-Output `"Work Folders do not exist, Migration Flagfile Exists, and Redirection of the Desktop shell folder was done.   Assuming all tasks complete and will perform cleanup.`"
+                `$WF_and_Flagfile_Exist = `$false
+                `$scriptCleanup = `$true
 
             }Else{
 
@@ -2702,9 +2704,28 @@ try {
 # the folder and all files within it
 
 try {
+ # remarked-out icacls calls here, as this has worked as SYSTEM in test, and needs to also work when running elevated interactively
+        # icacls $setRuntimeScriptFolder /inheritance:d | Out-Null
+        # icacls $setRuntimeScriptFolder\* /grant:r BUILTIN\Users:F | Out-Null
 
-icacls $setRuntimeScriptFolder /inheritance:d | Out-Null
-icacls $setRuntimeScriptFolder\* /grant:r BUILTIN\Users:F | Out-Null
+    # trying PS permissions method to make the RuntimeScript folder perms for Everyone / BUILTIN\Users
+
+# get permissions 
+$acl = Get-Acl -Path $setRuntimeScriptFolder
+ 
+# add a new permission 
+$permission = 'Everyone', 'FullControl', 'ContainerInherit, ObjectInherit', 'None', 'Allow' 
+$rule = New-Object -TypeName System.Security.AccessControl.FileSystemAccessRule -ArgumentList $permission 
+$acl.SetAccessRule($rule)
+ 
+# add another new permission 
+# WARNING: Replace username "Tobias" with the user name or group that you want to grant permissions 
+$permission = 'BUILTIN\Users', 'FullControl', 'ContainerInherit, ObjectInherit', 'None', 'Allow' 
+$rule = New-Object -TypeName System.Security.AccessControl.FileSystemAccessRule -ArgumentList $permission 
+$acl.SetAccessRule($rule)
+ 
+# set new permissions 
+$acl | Set-Acl -Path $setRuntimeScriptFolder
 
 } Catch {
     {1:<#terminating exception#>}
