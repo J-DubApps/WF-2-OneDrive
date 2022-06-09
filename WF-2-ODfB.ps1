@@ -2659,11 +2659,12 @@ try {
     {1:<#terminating exception#>}
 }
 
-# Whichever account first created the Runtime Script folder under C:\ProgramData (default), ensure other users can delete it
+# Whichever account first created the Runtime Script folder under C:\ProgramData (default), ensure other users can delete 
+# the folder and all files within it
 
 try {
 
-icacls $setRuntimeScriptFolder /inheritance:d
+icacls $setRuntimeScriptFolder /inheritance:d | Out-Null
 icacls $setRuntimeScriptFolder\* /grant:r BUILTIN\Users:F | Out-Null
 
 } Catch {
