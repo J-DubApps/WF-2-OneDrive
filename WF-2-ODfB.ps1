@@ -1650,7 +1650,9 @@ $RuntimeScriptContent = "
 `$enableDataMigration = `$$enableDataMigration
 `$LogFileName = `"ODfB_Config_Run_`$env:username.log`" # <-- Log file name for IT or end-user to review what this script did
 `$MigrationFlagFileName = `"$MigrationFlagFileName`"
+`$setRuntimeScriptFolder = `"$setRuntimeScriptFolder`"
 `$setRuntimeScriptPath = `"$setRuntimeScriptPath`" 
+`$setPSRuntimeLauncherPath = `"$setPSRuntimeLauncherPath`"
 `$LogFilePath = `"`$env:userprofile\`$LogFileName`"
 `$OneDriveUserPath = `"`$env:userprofile\`$OneDriveFolderName`"
 `$WorkFoldersPath = `"`$env:userprofile\`$WorkFoldersName`"
@@ -1723,8 +1725,6 @@ $RuntimeScriptContent += ")
 `$temporaryInstallerPath = Join-Path `$Env:TEMP -ChildPath `"OnedriveInstaller.EXE`"
 `$minimumOfflineVersionRequired = `"$minimumOfflineVersionRequired`"
 `$onedriveRootKey = `"HKCU:\Software\Microsoft\OneDrive\Accounts\Business`"
-`$setRuntimeScriptFolder = `"$setRuntimeScriptFolder`"
-`$setRuntimeScriptPath = `"$setRuntimeScriptPath`" 
 Start-Transcript -Path `$logFile
 
 #Reset Logfile & set the Error Action to Continue
@@ -2670,7 +2670,6 @@ If(`$scriptCleanup -eq `$true){
 
     Remove-Item `$setPSRuntimeLauncherPath -Force  -Recurse -ErrorAction SilentlyContinue 
     Remove-Item `$MyInvocation.MyCommand.Source -Force -ErrorAction SilentlyContinue
-    Remove-Item `$setRuntimeScriptFolder -Force  -Recurse -ErrorAction SilentlyContinue
 
     Exit (0)
 
