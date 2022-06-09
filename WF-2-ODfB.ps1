@@ -1351,16 +1351,6 @@ if(![System.IO.Directory]::($setRuntimeScriptFolder)){
 
 $vbsSilentPSLauncher | Out-File $setPSRuntimeLauncherPath -Force
 
-#Whichever user account first creates this file, ensure other users can replace it
-
-try {
- 
-    icacls $setPSRuntimeLauncherPath /grant:r BUILTIN\Users:F | Out-Null
-}
-catch {
-    {1:<#terminating exception#>}
-}
-
 If($DeployRunTimeScriptOnly -ne $true){
     #beginning of $DeployRuntimeScriptOnly IF check
 
@@ -2694,15 +2684,6 @@ Exit (0)
 "
 
 $RuntimeScriptContent | Out-File $setRuntimeScriptPath -Force
-
-#Whichever account first created this file, ensure other users can delete it
-
-try {
-  
-    icacls $setRuntimeScriptPath /grant:r BUILTIN\Users:F | Out-Null
-} catch {
-    {1:<#terminating exception#>}
-}
 
 # Whichever account first created the Runtime Script folder under C:\ProgramData (default), ensure other users can delete 
 # the folder and all files within it
