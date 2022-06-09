@@ -172,6 +172,7 @@
 #   05/05/2022  (JW)        Update allow "Secondary PCs" to "catch-up" when a user is migrated on their Primary PC.
 #   05/09/2022  (JW)        Runtime tests for MECM, Intune, and GPO-based deployments of this script
 #   05/11/2022  (JW)        Final Testing "Runtime Migration Script" operation on Windows 10 Domain member PCs 
+#   06/08/2022  (JW)        Defaults to simple Folder Redirection + revised cleanup routine for Runtime Script to remove Scheduled / Run tasks.
 #
 ###############################################################################################
 
