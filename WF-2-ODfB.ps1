@@ -1311,6 +1311,8 @@ If($triggerRuntimeScriptHere -eq $true){
 
         Get-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" | Remove-ItemProperty -Name OnedriveAutoConfig -Force -ErrorAction SilentlyContinue
 
+        Remove-Item $setPSRuntimeLauncherPath -Force  -Recurse -ErrorAction SilentlyContinue 
+        Remove-Item $MyInvocation.MyCommand.Source -Force -ErrorAction SilentlyContinue
         Remove-Item $setRuntimeScriptFolder -Force  -Recurse -ErrorAction SilentlyContinue
 
 	    Exit (0)
@@ -2666,6 +2668,8 @@ If(`$scriptCleanup -eq `$true){
 
     Get-Item -Path `"HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`" | Remove-ItemProperty -Name OnedriveAutoConfig -Force -ErrorAction SilentlyContinue
 
+    Remove-Item `$setPSRuntimeLauncherPath -Force  -Recurse -ErrorAction SilentlyContinue 
+    Remove-Item `$MyInvocation.MyCommand.Source -Force -ErrorAction SilentlyContinue
     Remove-Item `$setRuntimeScriptFolder -Force  -Recurse -ErrorAction SilentlyContinue
 
     Exit (0)
