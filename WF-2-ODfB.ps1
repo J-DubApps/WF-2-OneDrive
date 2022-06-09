@@ -2430,8 +2430,6 @@ If((!`$null -eq `$detectedFolderPath) -and (`$redirectFoldersToOnedriveForBusine
     }
 }
 
-} # end of `$attemptKFM check
-
 If(`$SimpleRedirectMode -eq `$true){
 
     #Simple Redirect Mode writes direct Registry settings to redirect Known Folders to Onedrive for Business
