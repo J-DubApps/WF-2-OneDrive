@@ -1236,11 +1236,17 @@ $PrimaryTenantDomainTLD = $PrimaryTenantDomain.LastIndexOf('.')
 
 $PrimaryTenantSubDomain = $PrimaryTenantDomain.Substring(0,$PrimaryTenantDomainTLD)
 
+If($TenantID -eq $null){
+    $TenantID = (Invoke-WebRequest https://login.windows.net/$PrimaryTenantSubDomain.onmicrosoft.com/.well-known/openid-configuration | ConvertFrom-Json).token_endpoint.Split('/')[3]
+}
 
 WriteLog "Configured Primary Tenant Domain: $PrimaryTenantDomain"
 WriteLog "Primary Domain Name without TLD is $PrimaryTenantSubDomain"
 Write-Output "Configured Primary Tenant Domain: $PrimaryTenantDomain"
 Write-Output "Primary Domain Name without TLD is $PrimaryTenantSubDomain"
+WriteLog "Tenant ID: $TenantID"
+Write-Output "Tenant ID: $TenantID"
+
 
 If(!$RunningAsSYSTEM){WriteLog "Configured Migration Flag File: $FirstOneDriveComplete"}
 
@@ -2000,7 +2006,9 @@ Get-ChildItem -Path `$DesktopPath -Filter *.url -Include `$DuplicateNames | Wher
 
 #Attempt to auto-fill TenantID
 
-`$TenantID = (Invoke-WebRequest https://login.windows.net/`$PrimaryTenantSubDomain.onmicrosoft.com/.well-known/openid-configuration | ConvertFrom-Json).token_endpoint.Split('/')[3]
+If(`$TenantID -eq `$null){
+    `$TenantID = (Invoke-WebRequest https://login.windows.net/`$PrimaryTenantSubDomain.onmicrosoft.com/.well-known/openid-configuration | ConvertFrom-Json).token_endpoint.Split('/')[3]
+}
 
 #ENSURE ONEDRIVE CONFIG REGISTRY KEYS ARE CREATED
 try{
@@ -2647,6 +2655,20 @@ If(`$SimpleRedirectMode -eq `$true){
     ## Cleanup Section (for conditions where Work Folders Root is not present & OneDrive Migration Flag File exists)
 
     If((`$WF_and_Flagfile_Exist -eq `$false) -and (`$ODFlagFileExist -eq `$true)){`$scriptCleanup = `$true}else{`$scriptCleanup = `$false}
+
+   # We only want to cleanup if the Work Folders Root is not present + OneDrive Migration Flag File exists + Flag File > than 45 mins
+
+If(`$scriptCleanup -eq `$true){
+    `$lastWrite = (get-item `$FirstOneDriveComplete).LastWriteTime
+    `$timespan = new-timespan -minutes 45
+    
+    If (((get-date) - `$lastWrite) -gt `$timespan) {
+        # file is older than 45 mins, so good to cleanup
+    } else {
+        # file is newer than 45 mins, so wait until another scheduled run to perform any cleanup
+        `$scriptCleanup = `$false
+    }
+}
 
 If(`$scriptCleanup -eq `$true){
 
