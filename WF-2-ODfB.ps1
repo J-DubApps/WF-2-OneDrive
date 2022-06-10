@@ -1389,7 +1389,7 @@ If($DeployRunTimeScriptOnly -ne $true){
 try{
     Write-Output "Adding registry keys for Onedrive"
    
-    If($isLocalAdmin -eq $true){
+    If(($isLocalAdmin -eq $true) -or ($RunningAsSYSTEM -eq $True)){
           
         $res = New-Item -Path "HKLM:\Software\Policies\Microsoft\Onedrive" -Confirm:$False -ErrorAction SilentlyContinue
         $res = New-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Onedrive" -Name SilentAccountConfig -Value 1 -PropertyType DWORD -Force -ErrorAction SilentlyContinue
