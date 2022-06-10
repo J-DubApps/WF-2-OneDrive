@@ -1320,7 +1320,6 @@ If($triggerRuntimeScriptHere -eq $true){
 
         Remove-Item $setPSRuntimeLauncherPath -Force  -Recurse -ErrorAction SilentlyContinue 
         Remove-Item $MyInvocation.MyCommand.Source -Force -ErrorAction SilentlyContinue
-        Remove-Item $setRuntimeScriptFolder -Force  -Recurse -ErrorAction SilentlyContinue
 
 	    Exit (0)
 
