@@ -229,8 +229,10 @@ $DeployMode = $True # <---- Set to "True" to stage the Runtime Script & deploy t
 #   NOTE: DeployMode setting is intended for scenarios like MECM Deployment to remote PC endpoints, or when you want migration to run for other users of a PC endpoint, etc. 
 $enableFilesOnDemand = $False # <---- Default = "False" and setting to "True" will requires this Main Script to run ONCE with Admin rights to enable this OneDrive feature.  This setting requires Win 10 1709 minimum or higher.
 $cleanDesktopDuplicates = $False # <---- Set to True if you want the Runtime script to clean up a user's duplicate Desktop Shortcuts before Work Folders data migration.
-$GPO_Refresh = $True # <---- Set to "True" if you want to the Config / Runtime Script to perform a refresh of Group Policies at the end of its setup/config/migration run.  Helps get GPOs in place if needed. Default is "True".
-#   NOTE: Because GPO has a variable "time-to-live" to disable Work Folders ~90 minutes, I recommend leaving GPO_Refresh enabled if you're  also using GPO to disable or remove Work Folders settings.
+$GPO_Refresh = $True # <---- Leave "True" if you want Config / Runtime Script to refresh Group Policies at the end of its run.  Helps get GPOs in place if doing AD group-based changes. Default is "True".
+#   NOTE: Because GPO has a variable "time-to-live" to disable Work Folders ~90 minutes, I recommend leaving GPO_Refresh enabled if you're also using GPO as an extra guarantee of Work Folder setting removal.
+$MECM_Client_Refresh = $False  # <---- Set to "True" if you leverage Config Item / Baseline settings and/or OneDrive policies in SCCM/MECM.  Triggers CM Client to check-in for new configs relating to OneDrive. Default is "False".
+#   NOTE: Leveraging MECM Client Refresh requires this Deployment Script (WS-2-ODfB.ps1) to be running as SYSTEM (or elevated).
 
 #$TenantID = "00000000-0000-0000-0000-000000000000" # <--- Your Tenant ID, which is a GUID you can find at the link below and populate, or just let the Runtime Script attempt to 
 # auto-detect it based off of the $PrimaryTenantDomain variable above. Just set it manually if you already know your Office 365 Tenant ID.  This is not a required variable yet, but may be in the future.
@@ -1122,6 +1124,30 @@ function Test-Permission
         return $false
     }
 }
+
+function Invoke-SCCMCycles {
+    
+    #[Parameter(Mandatory=$true,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
+    #[string]$Client = @($env:COMPUTERNAME)
+    $Client = $env:COMPUTERNAME
+
+    Write-Output($Client)
+
+    [string[]]$IDs = @("{00000000-0000-0000-0000-000000000121}", # Application Deployment Evaluation
+                    "{00000000-0000-0000-0000-000000000003}", # Discovery Data Collection
+                    "{00000000-0000-0000-0000-000000000010}", # File Collection
+                    "{00000000-0000-0000-0000-000000000001}", # Hardware Inventory
+                    "{00000000-0000-0000-0000-000000000021}", # Machine Policy Retrieval
+                    "{00000000-0000-0000-0000-000000000022}", # Machine Policy Evaluation
+                    "{00000000-0000-0000-0000-000000000002}", # Software Inventory
+                    "{00000000-0000-0000-0000-000000000031}", # Software Metering Usage Report
+                    "{00000000-0000-0000-0000-000000000032}") # Windows Installer Source List Update
+
+    foreach ($ID in $IDs) {
+        Invoke-WmiMethod -ComputerName $Client -Namespace ROOT\ccm -Class SMS_CLIENT -Name TriggerSchedule "$ID"
+    }
+}
+
 
 ##
 ##########################################################################
@@ -2775,6 +2801,16 @@ Stop-Transcript
     }else {
     
         # Do Nothing
+    
+    }
+
+# If MECM_Client_Refresh var is True, trigger Function
+    # This helps get any OneDrive policies you may manage within SCCM / MECM onto the Endpoint for any additional settings you deploy
+    # Leave this variable False if you do not leverage MECM CI/CB and/or OneDrive policies to manage your Endpoints, or are not running this script Elevated.
+    
+    If(($RunningAsSYSTEM -eq $True) -or ($isLocalAdmin -eq $True)){
+    
+        If($MECM_Client_Refresh -eq $True){Invoke-SCCMCycles}
     
     }
         
