@@ -2700,9 +2700,9 @@ If(`$scriptCleanup -eq `$true){
     }
     
     If (((get-date) - `$lastWrite) -gt `$timespan) {
-        # file is older than 45 mins, so good to cleanup
+        # file is older than the set age check, so good to cleanup
     } else {
-        # file is newer than 45 mins, so wait until another scheduled run to perform any cleanup
+        # file is newer than the set age check, so wait until another scheduled run to perform any cleanup
         `$scriptCleanup = `$false
     }
 }
