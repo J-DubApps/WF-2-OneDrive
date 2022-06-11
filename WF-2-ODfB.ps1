@@ -232,7 +232,15 @@ $cleanDesktopDuplicates = $False # <---- Set to True if you want the Runtime scr
 $GPO_Refresh = $True # <---- Leave "True" if you want Config / Runtime Script to refresh Group Policies at the end of its run.  Helps get GPOs in place if doing AD group-based changes. Default is "True".
 #   NOTE: Because GPO has a variable "time-to-live" to disable Work Folders ~90 minutes, I recommend leaving GPO_Refresh enabled if you're also using GPO as an extra guarantee of Work Folder setting removal.
 $MECM_Client_Refresh = $False  # <---- Set to "True" if you leverage Config Item / Baseline settings and/or OneDrive policies in SCCM/MECM.  Triggers CM Client to check-in for new configs relating to OneDrive. Default is "False".
-#   NOTE: Leveraging MECM Client Refresh requires this Deployment Script (WS-2-ODfB.ps1) to be running as SYSTEM (or elevated).
+#   NOTE: Leveraging MECM Client Refresh requires this Deployment Script (WF-2-ODfB.ps1) to be running as SYSTEM (or elevated).
+$Single_User_Endpoint = $True # <---- USE CAUTION!! Leave alone if you don't understand the explanation below.  
+#   Set to "False" *only* for TARGETED Deployments of the Deployment Script (WF-2-ODfB.ps1) to shared MULTI-USER Endpoints (Floating Staff PCs, Terminal Servers, etc).
+#   NOTE: Do NOT change this unless you absolutely are certain an Endpoint has > 1 user.  Single User Device Endpoints require this variable to remain "True".
+#       Setting this to "False" DELAYs all self-cleanup routines / Scheduled Task & Registry Run removal tasks in the Runtime Script, causing your migration routines
+#       to not stop when the Work Folders root data finished being migrated.  This keeps the Runtime Script present and re-running for 7 days - before it performs cleanup.
+#       This allows other users' sessions on the shared Endpoint Device to be migrated.
+#   IMPORTANT: If you have other users you wish to remain on Work Folders on the Endpoint, while others need to migrate to OneDrive, this option will NOT work -- and you
+#       will need to write custom code in the Runtime Script in the area that is allotted for this.  Contact the Author if you have such a scenario.
 
 #$TenantID = "00000000-0000-0000-0000-000000000000" # <--- Your Tenant ID, which is a GUID you can find at the link below and populate, or just let the Runtime Script attempt to 
 # auto-detect it based off of the $PrimaryTenantDomain variable above. Just set it manually if you already know your Office 365 Tenant ID.  This is not a required variable yet, but may be in the future.
@@ -2685,7 +2693,11 @@ If(`$SimpleRedirectMode -eq `$true){
 
 If(`$scriptCleanup -eq `$true){
     `$lastWrite = (get-item `$FirstOneDriveComplete).LastWriteTime
-    `$timespan = new-timespan -minutes 45
+    If(`$Single_User_Endpoint -eq `$True){
+        `$timespan = new-timespan -minutes 45
+    }else{
+        `$timespan = new-timespan -days 7
+    }
     
     If (((get-date) - `$lastWrite) -gt `$timespan) {
         # file is older than 45 mins, so good to cleanup
