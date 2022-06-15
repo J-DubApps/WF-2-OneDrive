@@ -1370,6 +1370,9 @@ If($triggerRuntimeScriptHere -eq $true){
 
     If($WorkFoldersPathCheck){Write-Output "Work Folders Path checked and physically exists"}
 
+#Use system.io variable for File & Directory operations to check for Migration Flag file & Work Folders Path
+If([System.IO.Directory]::Exists($WorkFoldersPath)){$WorkFoldersExist = $true}else{$WorkFoldersExist = $false}
+
     #Set variable if we encounter both OneDrive Flag File and Work Folders paths at the same time
     $WF_and_Flagfile_Exist = $null
     If(($ODFlagFileExist -eq $true)  -and ($WorkFoldersExist -eq $true)){$WF_and_Flagfile_Exist = $true}else{$WF_and_Flagfile_Exist = $false}
@@ -1381,7 +1384,6 @@ If($triggerRuntimeScriptHere -eq $true){
         $SchedTaskExists = $null
         $SchedTaskName = "OnedriveAutoConfig"
         $SchedTaskExists = Get-ScheduledTask | Where-Object {$_.TaskName -like $SchedTaskName }
-        Write-Output "Scheduled Task Exists: $SchedTaskExists"
 
         If($SchedTaskExists){Unregister-ScheduledTask -TaskName $SchedTaskName -Confirm:$false -ErrorAction SilentlyContinue}
 
@@ -2767,7 +2769,6 @@ If(`$scriptCleanup -eq `$true){
     `$SchedTaskExists = `$null
     `$SchedTaskName = `"OnedriveAutoConfig`"
     `$SchedTaskExists = Get-ScheduledTask | Where-Object {`$_.TaskName -like `$SchedTaskName }
-    Write-Output `"Scheduled Task Exists: `$SchedTaskExists`"
 
     If(`$SchedTaskExists){Unregister-ScheduledTask -TaskName `$SchedTaskName -Confirm:`$false -ErrorAction SilentlyContinue}
 
@@ -2850,7 +2851,6 @@ $acl | Set-Acl -Path $setRuntimeScriptFolder
     $SchedTaskExists = $null
     $SchedTaskName = "OnedriveAutoConfig"
     $SchedTaskExists = Get-ScheduledTask | Where-Object {$_.TaskName -like $SchedTaskName }
-    Write-Output "Scheduled Task Exists: $SchedTaskExists"
 
     If($SchedTaskExists) {
         # Scheduled Task exists, so start the task as we exit. 
