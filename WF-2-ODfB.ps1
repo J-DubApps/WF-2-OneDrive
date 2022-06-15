@@ -1208,7 +1208,7 @@ If($DeployMode -eq $True){$triggerRuntimeScriptHere = $False}
 If($RunningAsSYSTEM -eq $True){$triggerRuntimeScriptHere = $False}
 #endregion OPTIONAL_VAR_CHECKS
 
-#region LOGFILE_SETUP
+#region LOGFILE_SETUPS
 
 #Set the Logfile Location based on this script's mode
 
@@ -1234,7 +1234,7 @@ If(($DeployMode -eq $True) -and ($DeployRuntimeScriptOnly -ne $true)){
     Write-Output "Set User Profile paths based on configured required variables"
     WriteLog "Set User Profile paths based on configured required variables..."
 
-
+#region SET_TRANSCRIPT_LOGFILE
 #Set PS Transcript Logfile & Restart self in x64 if we're on a 64-bit OS
 
 WriteLog "Setting Power Shell Transcript Logfile and checking Runtime Environment"
@@ -1254,8 +1254,8 @@ If (!([Environment]::Is64BitProcess)){
 }else{
     Start-Transcript -Path $logFileX64
 }
-
-#endregion LOGFILE_SETUP
+#endregion SET_TRANSCRIPT_LOGFILE
+#endregion LOGFILE_SETUPS
 
 #region REQUIRED_WF_VAR_CHECK
 Write-Output "Checking to see if 'WorkFoldersName' variable was set by a human, or if script needs to try populating it."
@@ -1295,6 +1295,7 @@ If(!$RunningAsSYSTEM){Write-Output "Value of Work Folders Path Variable is $Work
 If(!$RunningAsSYSTEM){Write-Output "Configured Path for OneDrive Folder Root: $OneDriveUserPath"}
 #endregion REQUIRED_WF_VAR_CHECK
 
+#region TENANT_ID_CHECK
 $PrimaryTenantDomainTLD = $PrimaryTenantDomain.LastIndexOf('.')
 
 $PrimaryTenantSubDomain = $PrimaryTenantDomain.Substring(0,$PrimaryTenantDomainTLD)
@@ -1309,8 +1310,9 @@ Write-Output "Configured Primary Tenant Domain: $PrimaryTenantDomain"
 Write-Output "Primary Domain Name without TLD is $PrimaryTenantSubDomain"
 WriteLog "Tenant ID: $TenantID"
 Write-Output "Tenant ID: $TenantID"
+#endregion TENANT_ID_CHECK
 
-
+#region FLAGFILE_AND_PATH_CHECKS
 If(!$RunningAsSYSTEM){WriteLog "Configured Migration Flag File: $FirstOneDriveComplete"}
 
 WriteLog "Configured Path for This Logfile: $LogFilePath"
@@ -1321,7 +1323,13 @@ If(!$RunningAsSYSTEM){WriteLog "Configured Path for OneDrive Folder Root: $OneDr
 If(($RunningAsSYSTEM) -and ($DeployMode)){WriteLog "Running as SYSTEM in Deployment Mode"}
 If(($RunningAsSYSTEM) -and ($DeployMode)){Write-Output "Running as SYSTEM in Deployment Mode"}
 
+#Set system.io Variable to see if there is a centralized/single Runtime of OneDrive vs the default Windows Bundled version
+$OneDriveProgFiles = "C:\Program Files\Microsoft OneDrive"
+[System.IO.DirectoryInfo]$OneDriveProgFilesPath = $OneDriveProgFiles
 
+#endregion FLAGFILE_AND_PATH_CHECKS
+
+#region ADMIN_AND_SCHEDTASK_RIGHTS_CHECK
 #Check for Local Admin Rights (expect that user is non-Admin unless running as SYSTEM or in Deploy Mode, but always check anyway)
 
     $isLocalAdmin = Test-IsLocalAdministrator
@@ -1342,15 +1350,13 @@ If(($RunningAsSYSTEM) -and ($DeployMode)){Write-Output "Running as SYSTEM in Dep
         WriteLog "User $env:USERNAME has Admin rights, therefore can create Scheduled Tasks"
         $SchedTasksRights = $true
     }
+#endregion ADMIN_AND_SCHEDTASK_RIGHTS_CHECK
 
-
-#Set system.io Variable to see if there is a centralized/single Runtime of OneDrive vs the default Windows Bundled version
-$OneDriveProgFiles = "C:\Program Files\Microsoft OneDrive"
-[System.IO.DirectoryInfo]$OneDriveProgFilesPath = $OneDriveProgFiles
-
-
+#region OD_AND_WF_CHECK_FOR_THIS_USER
 If($triggerRuntimeScriptHere -eq $true){
-
+    # If this script is set to attempt migration/onedrive setup as THIS user later, then perform WF Folder Check
+    # Perform cleanup if OneDrive is already setup for this user
+    
     #Set system.io variable for operations on Migration Flag file
     [System.IO.DirectoryInfo]$FirstOneDriveCompletePath = $FirstOneDriveComplete
 
@@ -1389,9 +1395,9 @@ If($triggerRuntimeScriptHere -eq $true){
     }  # end of $scriptCleanup check
 
 } # end of $triggerRuntimeScriptHere check
+#endregion OD_AND_WF_CHECK_FOR_THIS_USER
 
-
-
+#region CREATE_SILENT_VBS_WRAPPER
 #CREATE RUNTIME WRAPPER TO LAUNCH THE MIGRATION RUNTIME SCRIPT (SO USER DOESN'T GET A PS WINDOW)
 WriteLog "Creating Silent VBS Launcher for Runtime Script (so User doesn't get a PS window)."
 $vbsSilentPSLauncher = "
@@ -1418,10 +1424,13 @@ if(![System.IO.Directory]::($setRuntimeScriptFolder)){
 }
 
 $vbsSilentPSLauncher | Out-File $setPSRuntimeLauncherPath -Force
+#endregion CREATE_SILENT_VBS_WRAPPER
 
+#region DEPLOY_MODE_CHECK_IF_FALSE
 If($DeployRunTimeScriptOnly -ne $true){
     #beginning of $DeployRuntimeScriptOnly IF check
 
+#region ONEDRIVE_REGISTRY_CHECK
 #ENSURE ONEDRIVE CONFIG REGISTRY KEYS ARE CREATED
 try{
     Write-Output "Adding registry keys for Onedrive"
@@ -1446,7 +1455,9 @@ try{
     Write-Error "Failed to add Onedrive registry keys, installation may not be consistent" -ErrorAction Continue
     Write-Error $_ -ErrorAction Continue
 }
+#endregion ONEDRIVE_REGISTRY_CHECK
 
+#region REMOVE_WORKFOLDERS_SETTINGS
 #REMOVE WORKFOLDERS AUTOPROVISION ENTRIES OF ALL USERS OF THIS SYSTEM
 
     #Note: By default the HKCU\Software\Policies\Microsoft\Windows\WorkFolder key does not allow non-admin users to modify the AutoProvision DWORD entry
@@ -1506,10 +1517,14 @@ Foreach ($item in $ProfileList) {
 
 }
 }  #end of WORKFOLDERS AUTOPROVISION ENTRIES REMOVAL
+#endregion REMOVE_WORKFOLDERS_SETTINGS
 
-#######################################################
-# Set the Runtime Script to run at User Logon
-#######################################################
+#region SET_RUNTIME_SCRIPT_AT_LOGON
+#####################################################################################
+# Set the Runtime Script to run at User Logon *IF*
+#   1. NOT Running in Deployment Mode
+#   2. NOT running elevated or as SYSTEM
+#####################################################################################
 
 $wscriptPath = Join-Path $env:SystemRoot -ChildPath "System32\wscript.exe"
 $fullRunPath = "$wscriptPath `"$setPSRuntimeLauncherPath`" `"$setRuntimeScriptPath`""
@@ -1529,10 +1544,16 @@ If(($DeployMode -eq $false) -and ($SchedTasksRights -eq $false)){
     }
 }
 }    #end of $DeployRuntimeScriptOnly check
+#endregion SET_RUNTIME_SCRIPT_AT_LOGON
+#endregion DEPLOY_MODE_CHECK_IF_FALSE
 
-#######################################################
-# Create a scheduled task to Trigger the Runtime Script
-#######################################################
+#region SCHEDULED_TASK_SETUP
+################################################################
+# Create a scheduled task to Trigger the Runtime Script *IF*
+#   1. Running in Deployment Mode
+#   2. Running elevated or as SYSTEM
+#   3. Current Run Session has Sched Task creation rights 
+################################################################
 
 If(($SchedTasksRights -eq $true) -and ($skipScheduledTaskCreation -eq $false)){
 
@@ -1580,6 +1601,8 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
     if(Get-ScheduledTask -TaskName "OnedriveAutoConfig" -TaskPath \  -ErrorAction Ignore) { Unregister-ScheduledTask -TaskName "OnedriveAutoConfig" -TaskPath \ -Confirm:$false}else{}
 
     Register-ScheduledTask -InputObject $task -TaskName "OnedriveAutoConfig"
+
+#region MODIFY_SCHEDULED_TASK_ACL
 
     #SET PERMS TO SCHEDULED TASK SO THAT IT CAN BE RUN BY ANYONE
 
@@ -1666,7 +1689,8 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
     } 
     
 } #end of $skipScheduledTaskCreation & Schedrights check
-
+#endregion MODIFY_SCHEDULED_TASK_ACL
+#endregion SCHEDULED_TASK_SETUP
 
 #region RUNTIME_SCRIPT_CONTENT    
 #######################################################
@@ -2854,6 +2878,7 @@ $acl | Set-Acl -Path $setRuntimeScriptFolder
     
     }
 
+#region CLEANUP_AND_EXIT
 #End of Script - cleanup & Exit
 
     WriteLog "WF to OneDrive Migration Checks and Runtime Script-Creation is Complete"
@@ -2863,10 +2888,12 @@ $acl | Set-Acl -Path $setRuntimeScriptFolder
     If($RunningAsSYSTEM -eq $True){Copy-Item "$Env:TEMP\$LogFileName" -Destination "$setRuntimeScriptFolder\$LogFileName" -Force -ErrorAction Ignore | Out-Null} 
 
 	Exit (0)
+#endregion CLEANUP_AND_EXIT
+
 #endregion ScriptBody
 
 
-    #region LICENSE
+#region LICENSE
 <#
       Creative GNU General Public License, version 3 (GPLv3)
       Julian West
