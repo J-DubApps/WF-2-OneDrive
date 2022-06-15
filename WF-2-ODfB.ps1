@@ -185,6 +185,9 @@ PARAM(
 	[switch]$DeployRunTimeScriptOnly=$false
 )
 
+#region VariableDeclaration
+#region REQUIRED_VARS
+
 ### REQUIRED CONFIGURATION ###
 ## *REQUIRED* Variables, needed for successful script run.  Set to your own env values - 
 #
@@ -210,8 +213,11 @@ $PrimaryTenantDomain = "yourO365domain.com"
 #
 ##
 ### End of *REQUIRED* Variables -- 
+#endregion REQUIRED_VARS
 
 ###############################################################################################
+
+#region OPTIONAL_VARS
 
 ### OPTIONAL CONFIGURATION ###
 ## *OPTIONAL* Variables - please review & configure for optimum operation in your environment! 
@@ -263,6 +269,8 @@ $MigrationFlagFileName = "FirstOneDriveComplete.flg"
 # It is saved during Runtime to: %userprofile%\$OneDriveFolderName\$MigrationFlagFileName
 #
 
+#region DEPLOY_ONLY_CHECK
+
 # $DeployRunTimeScriptOnly = $true  # Outputs the Runtime/migration script ONLY, and does nothing else.  
 # Un-comment the above when Debugging/Testing Runtime script, or run the script manually with Parameter Switch "-DeployRunTimeScriptOnly"  
 # Script does nothing execept ONLY writing the WF-2-ODfB-Mig.ps1 Runtime script then exits.  Script will not set OD Registry entires, nor will it 
@@ -283,9 +291,14 @@ If($DeployRunTimeScriptOnly -ne $true){
 }else{
     $setRuntimeScriptFolder = $PSScriptRoot
 }
+#endregion DEPLOY_ONLY_CHECK
 
+#region SET_RUNTIME_SCRIPT_PATH
 $setRuntimeScriptPath = Join-Path $setRuntimeScriptFolder -ChildPath "WF-2-ODfB-Mig.ps1"
 $setPSRuntimeLauncherPath = Join-Path $setRuntimeScriptFolder -ChildPath "WF-2-ODfB-Mig.vbs"
+#endregion SET_RUNTIME_SCRIPT_PATH
+
+#region KNOWN_FOLDERS_ARRAY
 
 ###KNOWN FOLDERS ARRAY### <-- Below is the list of known folders that will be checked for redirection: MODIFY AS NEEDED!
 
@@ -299,12 +312,15 @@ $listOfFoldersToRedirectToOnedriveForBusiness = @(#One line for each folder you 
     @{"knownFolderInternalName" = "Favorites";"knownFolderInternalIdentifier"="Favorites";"desiredSubFolderNameInOnedrive"="Favorites"},
     @{"knownFolderInternalName" = "MyPictures";"knownFolderInternalIdentifier"="Pictures";"desiredSubFolderNameInOnedrive"="Pictures"} #note that the last entry does NOT end with a comma
 )
+#endregion KNOWN_FOLDERS_ARRAY
 
 #
 ##
 ### End of OPTIONAL Variables -- 
+#endregion OPTIONAL_VARS
+#endregion VariableDeclaration
 
-
+#region FUNCTIONS
 ##########################################################################
 ##		Functions Section - DO NOT MODIFY!!
 ##########################################################################
@@ -1156,7 +1172,7 @@ function Invoke-SCCMCycles {
     }
 }
 
-
+#endregion FUNCTIONS
 ##
 ##########################################################################
 ##                  End of Functions Section
@@ -1166,12 +1182,21 @@ function Invoke-SCCMCycles {
 ###
 ###  SCRIPT OPERATIONS BEGIN
 
+#region ScriptBody
+
+$ErrorActionPreference = "Continue"
+
+#region SET_ENV_VARS
+
 #Add User Profile path to customized variables (if not running in Deployment mode)
 
 $OneDriveUserPath = "$env:userprofile\$OneDriveFolderName"
 $FirstOneDriveComplete = "$OneDriveUserPath\$MigrationFlagFileName"
 $RunningAsSYSTEMCheck = $env:computername + "$"
 $RunningAsSYSTEM = $null
+#endregion SET_ENV_VARS
+
+#region OPTIONAL_VAR_CHECKS
 
 If(($RunningAsSYSTEMCheck -eq $env:UserName) -and ($DeployRuntimeScriptOnly -ne $true)){
     $DeployMode = $True
@@ -1181,6 +1206,9 @@ If(($RunningAsSYSTEMCheck -eq $env:UserName) -and ($DeployRuntimeScriptOnly -ne 
 
 If($DeployMode -eq $True){$triggerRuntimeScriptHere = $False}
 If($RunningAsSYSTEM -eq $True){$triggerRuntimeScriptHere = $False}
+#endregion OPTIONAL_VAR_CHECKS
+
+#region LOGFILE_SETUP
 
 #Set the Logfile Location based on this script's mode
 
@@ -1199,8 +1227,6 @@ If(($DeployMode -eq $True) -and ($DeployRuntimeScriptOnly -ne $true)){
 
 #Reset Logfile & set the Error Action to Continue
     Remove-Item $LogFilePath -Force -ErrorAction Ignore | Out-Null
-     
-	$ErrorActionPreference = "Continue"
     
 	#Log the SCript Runtime start
 	WriteLog "OneDrive Migration Checklist and Script Staging"
@@ -1229,6 +1255,9 @@ If (!([Environment]::Is64BitProcess)){
     Start-Transcript -Path $logFileX64
 }
 
+#endregion LOGFILE_SETUP
+
+#region REQUIRED_WF_VAR_CHECK
 Write-Output "Checking to see if 'WorkFoldersName' variable was set by a human, or if script needs to try populating it."
 
 If($WorkFoldersName -eq $null){
@@ -1264,7 +1293,7 @@ If(!$RunningAsSYSTEM){Write-Output "Value of Work Folders Name Variable is $Work
 
 If(!$RunningAsSYSTEM){Write-Output "Value of Work Folders Path Variable is $WorkFoldersPath"}
 If(!$RunningAsSYSTEM){Write-Output "Configured Path for OneDrive Folder Root: $OneDriveUserPath"}
-
+#endregion REQUIRED_WF_VAR_CHECK
 
 $PrimaryTenantDomainTLD = $PrimaryTenantDomain.LastIndexOf('.')
 
@@ -1638,6 +1667,8 @@ $UserProfileFolderCount = Get-ChildItem -Path "$env:systemdrive\Users" | Where-O
     
 } #end of $skipScheduledTaskCreation & Schedrights check
 
+
+#region RUNTIME_SCRIPT_CONTENT    
 #######################################################
 #
 # Begin Placement of code for Runtime Script
@@ -2742,6 +2773,7 @@ WriteLog `"WF to OneDrive Config & Data Migration Script-Run Complete`"
 Exit (0)
 "
 
+#region RUNTIME_SCRIPT_OUTPUT_AND_PERMS
 $RuntimeScriptContent | Out-File $setRuntimeScriptPath -Force
 
 # Whichever account first created the Runtime Script folder under C:\ProgramData (default), ensure other users can delete 
@@ -2774,17 +2806,14 @@ $acl | Set-Acl -Path $setRuntimeScriptFolder
 } Catch {
     {1:<#terminating exception#>}
 }
-
+#endregion RUNTIME_SCRIPT_OUTPUT_AND_PERMS
+#endregion RUNTIME_SCRIPT_CONTENT 
 #######################################################
 #
-# End of code for Local Script for scheduled task to 
-# run the script once
+# End of code for Runtime Script
 #
 #######################################################
 
-#End of Script - cleanup & Exit
-
-Stop-Transcript
 
    LogInformationalEvent("Work Folders to OneDrive Migration Checks and Runtime Script-creation completed by " + $env:UserName)
    
@@ -2817,19 +2846,47 @@ Stop-Transcript
     }
 
 # If MECM_Client_Refresh var is True, trigger Function
-    # This helps get any OneDrive policies you may manage within SCCM / MECM onto the Endpoint for any additional settings you deploy
-    # Leave this variable False if you do not leverage MECM CI/CB and/or OneDrive policies to manage your Endpoints, or are not running this script Elevated.
-    
+    # This helps get any OneDrive policies you may manage within SCCM / MECM or additional CI/CB settings you deploy
+
     If(($RunningAsSYSTEM -eq $True) -or ($isLocalAdmin -eq $True)){
     
         If($MECM_Client_Refresh -eq $True){Invoke-SCCMCycles}
     
     }
-        
+
+#End of Script - cleanup & Exit
+
     WriteLog "WF to OneDrive Migration Checks and Runtime Script-Creation is Complete"
+
+    Stop-Transcript
 
     If($RunningAsSYSTEM -eq $True){Copy-Item "$Env:TEMP\$LogFileName" -Destination "$setRuntimeScriptFolder\$LogFileName" -Force -ErrorAction Ignore | Out-Null} 
 
 	Exit (0)
+#endregion ScriptBody
 
 
+    #region LICENSE
+<#
+      Creative GNU General Public License, version 3 (GPLv3)
+      Julian West
+      Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+      1. Redistributions of source code must retain the above LICENSE information, this list of conditions and the following disclaimer.
+      2. Redistributions in binary form must reproduce the above LICENSE notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+      3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+      THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#>
+#endregion LICENSE
+
+#region DISCLAIMER
+<#
+      DISCLAIMER:
+      - Use at your own risk, etc.
+      - This is open-source software, if you find an issue try to fix it yourself. There is no support and/or warranty in any kind
+      - This is a third-party Software
+      - The developer of this Software is NOT sponsored by or affiliated with Microsoft Corp (MSFT) or any of its subsidiaries in any way
+      - The Software is not supported by Microsoft Corp (MSFT)
+      - By using the Software, you agree to the License, Terms, and any Conditions declared and described above
+      - If you disagree with any of the terms, and any conditions declared: delete it and build your own solution
+#>
+#endregion DISCLAIMER
