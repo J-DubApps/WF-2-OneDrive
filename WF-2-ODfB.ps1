@@ -1986,7 +1986,7 @@ WriteLog `"One Drive Flag File & Work Folders Status Simultaneously: `$WF_and_Fl
 # Re-Apply Runtime Script to run @ User Logon if Needed
 #######################################################
 
-WriteLog `"Registering Script to run at logon`"
+WriteLog `"Reviewing config for this Script to run at logon if needed`"
 `$wscriptPath = Join-Path `$env:SystemRoot -ChildPath `"System32\wscript.exe`"
 `$fullRunPath = `"`$wscriptPath ```"`$setPSRuntimeLauncherPath```" ```"`$setRuntimeScriptPath```"`"
 if(Get-ScheduledTask -TaskName `"OnedriveAutoConfig`" -TaskPath \  -ErrorAction Ignore){ 
@@ -2473,7 +2473,7 @@ if((`$redirectFoldersToOnedriveForBusiness -eq `$true) -and (`$enableDataMigrati
         # Main / Deployment Script also will have already tried to remove this for all users of this system.
 
     try{
-    WriteLog `"Removing Work Folders Sync URL and disabling AutoProvision`"
+    WriteLog `"Verifying Removal of Work Folders Sync URL and disabling AutoProvision`"
     `$WorkFoldersRegPath = `"HKCU:\Software\Policies\Microsoft\Windows\WorkFolders`"
     `$WorkFoldersSyncURL = `"SyncUrl`"
 
