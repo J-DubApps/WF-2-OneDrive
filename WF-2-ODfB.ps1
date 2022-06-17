@@ -2104,12 +2104,12 @@ If(`$TenantID -eq `$null){
 try{
     Write-Output `"Adding registry keys for Onedrive`"
     WriteLog `"Adding registry keys for Onedrive`"
-    `$res = New-Item -Path `"HKCU:\Software\Microsoft\Onedrive`" -Confirm:`$False -ErrorAction SilentlyContinue
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name DefaultToBusinessFRE -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name DisablePersonalSync -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name EnableEnterpriseTier -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name EnableADAL -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
-    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\Onedrive`" -Name DisableTutorial -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    `$res = New-Item -Path `"HKCU:\Software\Microsoft\OneDrive`" -Confirm:`$False -ErrorAction SilentlyContinue
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\OneDrive`" -Name DefaultToBusinessFRE -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\OneDrive`" -Name DisablePersonalSync -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\OneDrive`" -Name EnableEnterpriseTier -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\OneDrive`" -Name EnableADAL -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
+    `$res = New-ItemProperty -Path `"HKCU:\Software\Microsoft\OneDrive`" -Name DisableTutorial -Value 1 -PropertyType DWORD -Force -ErrorAction Stop
     Write-Output `"Registry keys for Onedrive added`"
 }catch{
     Write-Error `"Failed to add Onedrive registry keys, installation may not be consistent`" -ErrorAction Continue
