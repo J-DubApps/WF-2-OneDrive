@@ -1192,6 +1192,7 @@ $ErrorActionPreference = "Continue"
 
 $OneDriveUserPath = "$env:userprofile\$OneDriveFolderName"
 $FirstOneDriveComplete = "$OneDriveUserPath\$MigrationFlagFileName"
+$DeployRunFlagFileName = "$setRuntimeScriptFolder\DeployRunComplete.flg"
 $RunningAsSYSTEMCheck = $env:computername + "$"
 $RunningAsSYSTEM = $null
 #endregion SET_ENV_VARS
@@ -2878,6 +2879,9 @@ $acl | Set-Acl -Path $setRuntimeScriptFolder
         If($MECM_Client_Refresh -eq $True){Invoke-SCCMCycles}
     
     }
+
+
+New-Item -Path $DeployRunFlagFileName -type file -force -ErrorAction SilentlyContinue
 
 #region CLEANUP_AND_EXIT
 #End of Script - cleanup & Exit
