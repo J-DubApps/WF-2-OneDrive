@@ -4,7 +4,7 @@
 	
 	This PS script will migrate a Windows 10 Endpoint's User Work Folder sync settings
 	and data over to OneDrive for Business.  You can optionally have it not do
-	the data migration or Folder Redirection parts, and only configure OneDrive Client
+	the data migration or Folder Redirection steps, and only configure OneDrive Client
 	via several Boolean variable settings.
        
        It is targeted for Domain-joined PCs that are in Azure AD Hybrid Join status.  
