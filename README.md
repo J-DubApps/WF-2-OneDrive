@@ -4,10 +4,14 @@
 	
 	This PS script will migrate a Windows 10 Endpoint's User Work Folder sync settings
 	and their Work Folder data over to OneDrive for Business and leave OneDrive sync 
-	enabled (while disabling WF sync).  
+	enabled (while disabling WF sync).  Useful for scenarios where back-end data
+ 	migration cannot be performed in advance (the client does the heavy-lifting).
 	
 	You can optionally have it not do the data migration or Folder Redirection steps, and only 
-	configure OneDrive Client and stop, via several Boolean variable settings.
+	configure OneDrive Client and stop, via several Boolean variable settings.  Useful for scenarios
+ 	where you are already doing bulk data migration of user WF data to OneDrive for Business 
+ 	via the SharePoint File Migration Tool:
+  	https://learn.microsoft.com/en-us/sharepointmigration/fileshare-to-odsp-migration-guide
        
        It is targeted for Domain-joined PC Endpoints, and PCs that are in Azure AD Hybrid Join status.  
        Script will silently run OneDrive Setup and sign the user into the OneDrive client and
