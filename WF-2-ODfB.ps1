@@ -2246,7 +2246,7 @@ WriteLog `"Checking existence of client folder`"
                         WriteLog `"Work Folders and OneDrive deployment both exist at the same time, prepare to move any orphan WF contents`"
                         Write-Host `"Work Folders and OneDrive deployment both exist at the same time, performing one-way sync/move  of any orphan WF contents via Robocopy with /X CNO options to sync-up OD4B folder`"
 
-                        robocopy `"`"`$(`$WorkFoldersPath)`"`" `"`"`$(`$OneDriveUserPath)`"`" /E /MOVE /XC /XN /XO /LOG+:`$env:userprofile\Start-Robocopy-`$(Get-Date -Format 'yyyyMMddhhmmss').log
+                        robocopy `"`"`$(`$WorkFoldersPath)`"`" `"`"`$(`$OneDriveUserPath)`"`" /E /MOVE /XC /XN /XO /XD `"AutoRecover`" /LOG+:`$env:userprofile\Start-Robocopy-`$(Get-Date -Format 'yyyyMMddhhmmss').log
                         break detectO4B
                     }else{
                         
@@ -2722,7 +2722,7 @@ If(`$SimpleRedirectMode -eq `$true){
             If(`$enableDataMigration -eq `$true){
            
         
-                robocopy `"`"`$(`$WorkFoldersPath)`"`" `"`"`$(`$OneDriveUserPath)`"`" /E /MOVE /XC /XN /XO /LOG+:`$env:userprofile\Start-Robocopy-`$(Get-Date -Format 'yyyyMMddhhmmss').log
+                robocopy `"`"`$(`$WorkFoldersPath)`"`" `"`"`$(`$OneDriveUserPath)`"`" /E /MOVE /XC /XN /XO /XD `"AutoRecover`" /LOG+:`$env:userprofile\Start-Robocopy-`$(Get-Date -Format 'yyyyMMddhhmmss').log
         
                  # Robocopy /MOVE should delete Work Folders root folder entirely.
                  # If the above fails to remove Work Folders root, or Work Folders root comes back, consider: 
